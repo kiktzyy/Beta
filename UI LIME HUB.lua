@@ -9,10 +9,10 @@ screenGui.Name = "LimeHubStatus"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = gui
 
--- Frame utama
+-- Frame utama (lebar 230, posisi tengah)
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 120)
-mainFrame.Position = UDim2.new(0.5, -100, 0, 10)
+mainFrame.Size = UDim2.new(0, 230, 0, 120)
+mainFrame.Position = UDim2.new(0.5, -115, 0, 10)
 mainFrame.BackgroundColor3 = Color3.new(0, 0, 0)
 mainFrame.BackgroundTransparency = 0.4
 mainFrame.BorderSizePixel = 0
@@ -87,7 +87,7 @@ local function updateStatusUI()
         local isSea2 = game.PlaceId == 4442272183
         local isSea3 = game.PlaceId == 7449423635
 
-        -- Cek status
+        -- Status
         if getgenv().isUnlockingSea2 then
             text = "Status : Unlock Sea 2"
         elseif p.Sea3Progress ~= nil then
@@ -108,11 +108,8 @@ local function updateStatusUI()
         levelLabel.Text = "Level : " .. (level and level.Value or "-")
         raceLabel.Text = "Race : " .. (race and race.Value or "-")
 
-        -- Cek Fighting Style
+        -- Fighting Style
         local fightingStyles = {
-            ["Sharkman Karate"] = 400,
-            ["Electric Claw"] = 400,
-            ["Death Step"] = 400,
             ["Superhuman"] = 400,
             ["Dragon Claw"] = 300,
             ["Fishman Karate"] = 300,
@@ -149,11 +146,11 @@ local function updateStatusUI()
     end
 end
 
--- Warna berkedip LimeHub Beta
+-- Warna berkedip merah ↔ putih
 task.spawn(function()
     local warna = {
-        Color3.fromRGB(255, 0, 0),    -- Merah
-        Color3.fromRGB(255, 255, 255) -- Putih
+        Color3.fromRGB(255, 0, 0),
+        Color3.fromRGB(255, 255, 255)
     }
     local i = 1
     while true do
