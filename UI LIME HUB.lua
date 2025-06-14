@@ -92,7 +92,7 @@ local function updateStatusUI()
             text = "Status : Unlock Sea 2"
         elseif p.Sea3Progress ~= nil then
             text = "Status : Unlock Sea 3"
-        elseif not p.SudahSelesaiBartilo and isSea2 then
+elseif (not p.SudahSelesaiBartilo or p.SudahSelesaiBartilo == false) and isSea2 and (level and level.Value or 0) < 875 then
             text = "Status : Quest Bartilo"
         elseif player:FindFirstChild("PlayerGui")
             and player.PlayerGui:FindFirstChild("Main")
