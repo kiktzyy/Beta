@@ -18,6 +18,19 @@ mainFrame.BackgroundTransparency = 0.4
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 
+-- Tambahkan garis putih di pinggir frame
+local border = Instance.new("UIStroke")
+border.Thickness = 1.5
+border.Color = Color3.new(1, 1, 1)
+border.Transparency = 0.2
+border.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+border.Parent = mainFrame
+
+-- Tambahkan efek sudut tidak siku
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = mainFrame
+
 -- Judul
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 20)
@@ -31,8 +44,8 @@ title.Parent = mainFrame
 
 -- Status
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, 0, 0, 20)
-statusLabel.Position = UDim2.new(0, 0, 0, 20)
+statusLabel.Size = UDim2.new(1, -10, 0, 20)
+statusLabel.Position = UDim2.new(0, 10, 0, 20)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = "Status : -"
 statusLabel.Font = Enum.Font.Gotham
@@ -43,8 +56,8 @@ statusLabel.Parent = mainFrame
 
 -- Level
 local levelLabel = Instance.new("TextLabel")
-levelLabel.Size = UDim2.new(1, 0, 0, 20)
-levelLabel.Position = UDim2.new(0, 0, 0, 40)
+levelLabel.Size = UDim2.new(1, -10, 0, 20)
+levelLabel.Position = UDim2.new(0, 10, 0, 40)
 levelLabel.BackgroundTransparency = 1
 levelLabel.Text = "Level : -"
 levelLabel.Font = Enum.Font.Gotham
@@ -55,8 +68,8 @@ levelLabel.Parent = mainFrame
 
 -- Race
 local raceLabel = Instance.new("TextLabel")
-raceLabel.Size = UDim2.new(1, 0, 0, 20)
-raceLabel.Position = UDim2.new(0, 0, 0, 60)
+raceLabel.Size = UDim2.new(1, -10, 0, 20)
+raceLabel.Position = UDim2.new(0, 10, 0, 60)
 raceLabel.BackgroundTransparency = 1
 raceLabel.Text = "Race : -"
 raceLabel.Font = Enum.Font.Gotham
@@ -67,8 +80,8 @@ raceLabel.Parent = mainFrame
 
 -- Fighting Style
 local styleLabel = Instance.new("TextLabel")
-styleLabel.Size = UDim2.new(1, 0, 0, 20)
-styleLabel.Position = UDim2.new(0, 0, 0, 80)
+styleLabel.Size = UDim2.new(1, -10, 0, 20)
+styleLabel.Position = UDim2.new(0, 10, 0, 80)
 styleLabel.BackgroundTransparency = 1
 styleLabel.Text = "Fightingstyle : -"
 styleLabel.Font = Enum.Font.Gotham
@@ -92,7 +105,7 @@ local function updateStatusUI()
             text = "Status : Unlock Sea 2"
         elseif p.Sea3Progress ~= nil then
             text = "Status : Unlock Sea 3"
-elseif (not p.SudahSelesaiBartilo or p.SudahSelesaiBartilo == false) and isSea2 and (level and level.Value or 0) < 875 then
+        elseif (not p.SudahSelesaiBartilo or p.SudahSelesaiBartilo == false) and isSea2 and (level and level.Value or 0) < 875 then
             text = "Status : Quest Bartilo"
         elseif player:FindFirstChild("PlayerGui")
             and player.PlayerGui:FindFirstChild("Main")
