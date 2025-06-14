@@ -123,11 +123,16 @@ local function updateStatusUI()
 
         -- Fighting Style
         local fightingStyles = {
+            ["God Human"] = 300,
+            ["Dragon Talon"] = 400,
+            ["Sharkman Karate"] = 400,
+            ["Electric Claw"] = 400,
+            ["Death Step"] = 400,
             ["Superhuman"] = 400,
-            ["Dragon Claw"] = 300,
-            ["Fishman Karate"] = 300,
-            ["Electro"] = 300,
-            ["Black Leg"] = 300
+            ["Dragon Claw"] = 400,
+            ["Fishman Karate"] = 400,
+            ["Electro"] = 400,
+            ["Black Leg"] = 400
         }
         local activeStyle = nil
         local targetMastery = nil
