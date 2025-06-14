@@ -93,7 +93,7 @@ styleLabel.Parent = mainFrame
 -- Update UI logic
 local function updateStatusUI()
     while true do
-        local text = "Status : Tidak diketahui"
+        local text = "Status : Idle"
         local level = player:FindFirstChild("Data") and player.Data:FindFirstChild("Level")
         local race = player:FindFirstChild("Data") and player.Data:FindFirstChild("Race")
         local p = getgenv().progress or {}
