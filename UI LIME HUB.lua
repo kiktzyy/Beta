@@ -16,16 +16,17 @@ discordContainer.Position = UDim2.new(0.5, -115, 0, -20)
 discordContainer.BackgroundTransparency = 1
 discordContainer.Parent = screenGui
 
--- Label link Discord
+-- Label link Discord (warna bergantian)
 local discordLink = Instance.new("TextLabel")
 discordLink.Size = UDim2.new(0.7, 0, 1, 0)
 discordLink.Position = UDim2.new(0, 0, 0, 0)
 discordLink.BackgroundTransparency = 1
 discordLink.Text = "https://discord.gg/Z2Q9kS22"
 discordLink.Font = Enum.Font.GothamSemibold
-discordLink.TextColor3 = Color3.fromRGB(0, 170, 255)
+discordLink.TextColor3 = Color3.fromRGB(255, 0, 0)
 discordLink.TextSize = 14
 discordLink.TextXAlignment = Enum.TextXAlignment.Left
+discordLink.RichText = true
 discordLink.Parent = discordContainer
 
 -- Tombol copy
@@ -198,7 +199,30 @@ local function updateStatusUI()
 	end
 end
 
--- Warna berkedip
+-- Efek warna-warni untuk Discord link
+task.spawn(function()
+	local colors = {
+		Color3.fromRGB(255, 0, 0),
+		Color3.fromRGB(255, 128, 0),
+		Color3.fromRGB(255, 255, 0),
+		Color3.fromRGB(0, 255, 0),
+		Color3.fromRGB(0, 255, 255),
+		Color3.fromRGB(0, 128, 255),
+		Color3.fromRGB(170, 0, 255),
+		Color3.fromRGB(255, 0, 255),
+	}
+	local index = 1
+	while true do
+		local tween = TweenService:Create(discordLink, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+			TextColor3 = colors[index]
+		})
+		tween:Play()
+		index = (index % #colors) + 1
+		task.wait(0.4)
+	end
+end)
+
+-- Efek berkedip pada title
 task.spawn(function()
 	local warna = {
 		Color3.fromRGB(255, 0, 0),
