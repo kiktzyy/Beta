@@ -21,7 +21,7 @@ local discordLink = Instance.new("TextLabel")
 discordLink.Size = UDim2.new(0.7, 0, 1, 0)
 discordLink.Position = UDim2.new(0, 0, 0, 0)
 discordLink.BackgroundTransparency = 1
-discordLink.Text = "https://discord.gg/Z2Q9kS22"
+discordLink.Text = "https://discord.gg/GrHxdhMQ"
 discordLink.Font = Enum.Font.GothamBold
 discordLink.TextColor3 = Color3.fromRGB(255, 0, 0)
 discordLink.TextSize = 14
@@ -41,7 +41,7 @@ copyButton.Parent = discordContainer
 
 copyButton.MouseButton1Click:Connect(function()
 	if setclipboard then
-		setclipboard("https://discord.gg/Z2Q9kS22")
+		setclipboard("https://discord.gg/GrHxdhMQ")
 		copyButton.Text = "Copied!"
 		task.wait(1.5)
 		copyButton.Text = "Copy"
