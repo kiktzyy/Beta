@@ -41,7 +41,7 @@ copyButton.Parent = discordContainer
 
 copyButton.MouseButton1Click:Connect(function()
 	if setclipboard then
-		setclipboard("https://discord.gg/GrHxdhMQ")
+		setclipboard("https://discord.gg/VPvUe6kW")
 		copyButton.Text = "Copied!"
 		task.wait(1.5)
 		copyButton.Text = "Copy"
