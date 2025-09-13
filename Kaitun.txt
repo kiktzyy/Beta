@@ -1,0 +1,3401 @@
+
+
+
+getgenv().AutoHopEnabled = true
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+local PlaceID = game.PlaceId
+local AllIDs = {}
+local IDFileName = "HopIDs.json"
+local foundAnything = ""
+
+local function LoadIDs()
+    if isfile and isfile(IDFileName) then
+        local content = readfile(IDFileName)
+        local success, decoded = pcall(function()
+            return HttpService:JSONDecode(content)
+        end)
+        if success and type(decoded) == "table" then
+            AllIDs = decoded
+        end
+    end
+end
+
+local function SaveIDs()
+    if writefile then
+        local content = HttpService:JSONEncode(AllIDs)
+        writefile(IDFileName, content)
+    end
+end
+
+-- Fungsi utama hopping
+function HopServer()
+
+    LoadIDs()
+
+    local function TPReturner()
+        local url
+        if foundAnything == "" then
+            url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100", PlaceID)
+        else
+            url = string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100&cursor=%s", PlaceID, foundAnything)
+        end
+
+        local success, response = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(url))
+        end)
+        if not success then return end
+
+        local Site = response
+        if Site.nextPageCursor and Site.nextPageCursor ~= "null" then
+            foundAnything = Site.nextPageCursor
+        end
+
+        local fallbackServer = nil
+
+        for _, v in pairs(Site.data) do
+            if not getgenv().AutoHopEnabled then return end
+
+            local ID = tostring(v.id)
+            local possible = true
+
+            -- skip kalau ID pernah dicoba
+            for _, existing in ipairs(AllIDs) do
+                if ID == existing then
+                    possible = false
+                    break
+                end
+            end
+
+            if possible and v.playing < v.maxPlayers then
+                if not fallbackServer then
+                    fallbackServer = ID
+                end
+
+                if v.playing >= 2 then
+                    table.insert(AllIDs, ID)
+                    SaveIDs()
+                    wait()
+                    pcall(function()
+                        TeleportService:TeleportToPlaceInstance(PlaceID, ID, Players.LocalPlayer)
+                    end)
+                    wait(0.1)
+                    return
+                end
+            end
+        end
+
+        -- Kalau tidak ada yang ≥2, pakai fallback server acak
+        if fallbackServer then
+            table.insert(AllIDs, fallbackServer)
+            SaveIDs()
+            wait()
+            pcall(function()
+                TeleportService:TeleportToPlaceInstance(PlaceID, fallbackServer, Players.LocalPlayer)
+            end)
+            wait(0.1)
+        end
+    end
+
+    while getgenv().AutoHopEnabled do
+        pcall(TPReturner)
+        wait(0.2)
+    end
+end
+
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local Terrain = Workspace:FindFirstChildOfClass("Terrain")
+
+-- Fungsi untuk menonaktifkan atau mengurangi efek grafis yang membebani FPS
+local function boostFPS()
+    -- Menonaktifkan Bayangan Global
+    Lighting.GlobalShadows = false
+
+    -- Menurunkan kualitas rendering grafis
+    settings().Rendering.QualityLevel = 1  -- Mengatur ke kualitas render terendah    
+
+    -- Menonaktifkan efek partikel dan ledakan
+    for _, object in ipairs(Workspace:GetDescendants()) do
+        if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Smoke") or object:IsA("Fire") then
+            object.Enabled = false
+        elseif object:IsA("Explosion") then
+            object.Visible = false
+        end
+    end
+
+    -- Mengurangi kualitas material bagian objek
+    for _, object in ipairs(Workspace:GetDescendants()) do
+        if object:IsA("BasePart") then
+            object.Material = Enum.Material.Plastic
+            object.Reflectance = 0
+        end
+    end
+
+    -- Menonaktifkan clothing (pakaian)
+    for _, obj in ipairs(Players:GetPlayers()) do
+        if obj.Character then
+            for _, clothing in ipairs(obj.Character:GetDescendants()) do
+                if clothing:IsA("Shirt") or clothing:IsA("Pants") then
+                    clothing:Destroy()
+                end
+            end
+        end
+    end
+end
+
+boostFPS()
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- Initial team selection
+repeat
+    wait()
+until not player:FindFirstChild("PlayerGui") 
+    or not player.PlayerGui:FindFirstChild("Main") 
+    or not player.PlayerGui.Main:FindFirstChild("Loading")
+pcall(function()
+   local data = player:WaitForChild("Data")
+     if not data:FindFirstChild("Team") or data.Team.Value == "" then
+       ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("SetTeam", "Pirates")
+    end
+end)
+
+game.DescendantAdded:Connect(function(object)
+    if object:IsA("ParticleEmitter") or object:IsA("Trail") or object:IsA("Smoke") or object:IsA("Fire") then
+        object.Enabled = false
+    elseif object:IsA("Explosion") then
+        object.Visible = false
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do  -- Mengulang setiap detik (atau interval lain)
+        pcall(function()
+            -- Hapus skrip-skrip yang berkaitan dengan karakter
+            for i, v in pairs((game:GetService("Players")).LocalPlayer.Character:GetDescendants()) do
+                if v:IsA("LocalScript") then
+                    if v.Name == "General" or v.Name == "Shiftlock" or v.Name == "FallDamage" or v.Name == "4444" or v.Name == "CamBob" or v.Name == "JumpCD" or v.Name == "Looking" or v.Name == "Run" then
+                        v:Destroy()
+                    end
+                end
+            end
+            
+            -- Hapus skrip-skrip yang berkaitan dengan PlayerScripts
+            for i, v in pairs((game:GetService("Players")).LocalPlayer.PlayerScripts:GetDescendants()) do
+                if v:IsA("LocalScript") then
+                    if v.Name == "RobloxMotor6DBugFix" or v.Name == "Clans" or v.Name == "Codes" or v.Name == "CustomForceField" or v.Name == "MenuBloodSp" or v.Name == "PlayerList" then
+                        v:Destroy()
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+local mt = getrawmetatable(game)
+local old = mt.__namecall
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if method == "Kick" then
+        return nil -- blokir kick
+    end
+    return old(self, ...)
+end)
+
+
+-- Anti AFK
+local VirtualUser = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:Connect(function()
+	VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+	wait(1)
+	VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+end)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CommF_ = ReplicatedStorage.Remotes:WaitForChild("CommF_")
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local workspace = game:GetService("Workspace")
+
+-- Inisialisasi variabel
+getgenv().AutoHopEnabled = true -- pastikan aktif
+local lastPos = nil
+local lastActivity = tick()
+
+-- Deteksi gerakan pemain lokal
+RunService.Heartbeat:Connect(function()
+    local char = player.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local pos = hrp.Position
+            if lastPos and (pos - lastPos).Magnitude > 0.01 then
+                lastActivity = tick()
+            end
+            lastPos = pos
+        end
+    end
+end)
+
+-- Deteksi idle dan pemain lain → AutoHop
+task.spawn(function()
+    while task.wait(1) do
+        if not getgenv().AutoHopEnabled then continue end
+
+        local idleDuration = tick() - lastActivity
+        local char = player.Character
+        local myHrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not myHrp then continue end
+
+        -- Cek pemain lain di workspace.Characters
+        local nearPlayer = false
+        local charFolder = workspace:FindFirstChild("Characters")
+        if charFolder then
+            for _, other in ipairs(Players:GetPlayers()) do
+                if other ~= player then
+                    local otherChar = charFolder:FindFirstChild(other.Name)
+                    local hrp = otherChar and otherChar:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local dist = (myHrp.Position - hrp.Position).Magnitude
+                        if dist <= 50 then
+                            nearPlayer = true
+                            break
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Jika idle terlalu lama atau ada pemain dekat
+        if idleDuration >= 60 or nearPlayer then
+            if type(HopServer) == "function" then
+                HopServer()
+            end
+            break -- stop loop agar tidak spam
+        end
+    end
+end)
+
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+local function autoRejoin()
+    local gameId = game.PlaceId
+    
+    local function rejoin()
+        task.spawn(function()
+            local success, err = pcall(function()
+                TeleportService:Teleport(gameId, Players.LocalPlayer)
+            end)
+            
+            if not success then
+                warn("Gagal rejoin:", err)
+                task.wait(5)
+                rejoin()
+            end
+        end)
+    end
+
+    Players.PlayerRemoving:Connect(function(player)
+        if player == Players.LocalPlayer then
+            warn("Player dikeluarkan, mencoba rejoin...")
+            task.wait(2)
+            rejoin()
+        end
+    end)
+
+    TeleportService.TeleportFailed:Connect(function(player, teleportResult, errorMessage)
+        if player == Players.LocalPlayer then
+            warn("Teleport gagal:", teleportResult, errorMessage)
+            task.wait(2)
+            rejoin()
+        end
+    end)
+end
+
+local HttpService = game:GetService("HttpService")
+local progressFile = player.Name .. "_progress.json"
+local progress = {}
+
+if isfile(progressFile) then
+    local success, data = pcall(function()
+        return HttpService:JSONDecode(readfile(progressFile))
+    end)
+    if success and type(data) == "table" then
+        progress = data
+    end
+end
+
+local function saveProgress()
+    writefile(progressFile, HttpService:JSONEncode(progress))
+end
+
+-- Services
+local RunService = game:GetService("RunService")
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+local beliHakiSudah = false
+local MIN_BELI_HAKI = 25000
+local beli = player:WaitForChild("Data"):WaitForChild("Beli")       
+local sudahUnlockSea2 = false
+
+-- Check world/sea where player is
+local placeId = game.PlaceId
+local isFirstSea = placeId == 2753915549
+local isSecondSea = placeId == 4442272183
+local isThirdSea = placeId == 7449423635
+
+-- CFrame NPC Quest positions
+-- First Sea
+local banditQuestCFrame = CFrame.new(1058.99231, 16.1369934, 1551.73328)
+local adventurerQuestCFrame = CFrame.new(-1598.08899, 35.5500031, 153.378006)
+local pirateQuestCFrame = CFrame.new(-1141.07495, 4.1000061, 3831.55005)
+local desertadventurerQuestCFrame = CFrame.new(894.489014, 5.13999939, 4392.43408, 0.819155693, 0, -0.573571265, 0, 1, 0, 0.573571265, 0, 0.819155693)
+local villagerQuestCFrame = CFrame.new(1387.1886, 86.6210175, -1295.04456, -0.475204468, 0, 0.879875481, 0, 1, 0, -0.879875481, 0, -0.475204468)
+local marine2QuestCFrame = CFrame.new(-5039.58594, 27.3500061, 4324.68018, -0.0253843069, -0, -0.999677837, 0, 1, -0, 0.999677837, 0, -0.0253843069)
+local skyadventurerQuestCFrame = CFrame.new(-4839.52979, 716.369019, -2619.44189, 0.972022355, 0, 0.234888479, 0, 1, 0, -0.234888479, 0, 0.972022355)
+local jailkeeperQuestCFrame = CFrame.new(5310.60498, 0.350006104, 474.946991, 0.373947144, 0, 0.92745018, 0, 1, 0, -0.92745018, 0, 0.373947144)
+local headjailerQuestCFrame = CFrame.new(5191.86084, 2.83999634, 686.439026, -0.731384635, 0, 0.681965172, 0, 1, 0, -0.681965172, 0, -0.731384635)
+local colosseumQuestCFrame = CFrame.new(-1580.047, 6.3500061, -2986.4751, -0.460947275, -0, -0.887427449, 0, 1, -0, 0.887427449, 0, -0.460947275)
+local themayorQuestCFrame = CFrame.new(-5313.37012, 10.9499969, 8515.29395, -0.499959469, 0, 0.866048813, 0, 1, 0, -0.866048813, 0, -0.499959469)
+local kingneptuneQuestCFrame = CFrame.new(61121.1094, 17.9530029, 1564.526, -0.95208931, 0, 0.305820376, 0, 1, 0, -0.305820376, 0, -0.95208931)
+local moleindex1QuestCFrame = CFrame.new(-4721.88916, 843.875, -1949.96594, 0.996191859, 0, -0.0871884301, 0, 1, 0, 0.0871884301, 0, 0.996191859)
+local moleindex2dan3QuestCFrame = CFrame.new(-7859.09814, 5544.18994, -381.476013, -0.348013401, 0, 0.937489688, 0, 1, 0, -0.937489688, 0, -0.348013401)
+local sky2QuestCFrame = CFrame.new(-7904.68506, 5634.66113, -1409.96704, 0.993162751, 0, 0.116737984, 0, 1, 0, -0.116737984, 0, 0.993162751)
+local freezeburgQuestCFrame = CFrame.new(5259.81982, 37.3500061, 4050.02905, -0.559458017, 0, 0.828858733, 0, 1, 0, -0.828858733, 0, -0.559458017)
+local detektifCFrame = CFrame.new(4853.36182, 4.3500061, 717.710999)
+local captainCFrame = CFrame.new(-1163.06006, 6.74200439, 1727.85303)
+
+-- Second Sea
+local area1QuestCFrame = CFrame.new(-429.544006, 71.7700043, 1836.18201, -0.230981946, -0, -0.972958326, 0, 1, -0, 0.972958326, 0, -0.230981946)
+local area2QuestCFrame = CFrame.new(638.445007, 71.7700043, 918.236023, 0.319999993, 0, 0.947417617, 0, 1, 0, -0.947417617, 0, 0.319999993)
+local marineQuestCFrame = CFrame.new(-2440.7959, 71.7140045, -3216.06812, 0.670647144, 0, 0.741776526, 0, 1, 0, -0.741776526, 0, 0.670647144)
+local graveyardQuestCFrame = CFrame.new(-5497.06201, 47.5919952, -795.237, -0.29242146, 0, -0.95628953, 0, 1, 0, 0.95628953, 0, -0.29242146)
+local snowQuestCFrame = CFrame.new(609.859009, 400.119995, -5372.25879, -0.374604106, 0, 0.927184999, 0, 1, 0, -0.927184999, 0, -0.374604106)
+local iceQuestCFrame = CFrame.new(-6064.06885, 15.2420044, -4902.979, 0.453972578, 0, -0.891015649, 0, 1, 0, 0.891015649, 0, 0.453972578)
+local fireQuestCFrame = CFrame.new(-5428.03223, 15.0619965, -5299.43506, -0.882952213, 0, 0.469463557, 0, 1, 0, -0.469463557, 0, -0.882952213)
+local rearQuestCFrame = CFrame.new(1040.55542, 124.943008, 32909.1055, -0.344175458, 0, 0.938905537, 0, 1, 0, -0.938905537, 0, -0.344175458)
+local frontQuestCFrame = CFrame.new(974.075989, 124.955002, 33253.6211, -1.1920929e-07, -1.60054265e-38, -0.99999994, 7.38711301e-39, 1, -1.60054293e-38, 0.99999994, -7.38711581e-39, -1.1920929e-07)
+local frostQuestCFrame = CFrame.new(5667.6582, 26.8000031, -6486.08984, -0.93358767, 0, -0.358349651, 0, 1, 0, 0.358349651, 0, -0.93358767)
+local forgottenQuestCFrame = CFrame.new(-3054.44507, 238.343994, -10142.8193, 0.990270376, -0, -0.139156565, 0, 1, -0, 0.139156565, 0, 0.990270376)
+
+-- Third Sea
+local pirateportQuestCFrame = CFrame.new(-450.105011, 107.681, 5950.72607, 0.959384561, 0, -0.282101452, -0, 1, 0, 0.282101452, 0, 0.959384561)
+local dragoncrewQuestCFrame = CFrame.new(6735.11084, 126.990005, -711.098022, -0.704124808, 0, 0.710076332, 0, 1, 0, -0.710076332, 0, -0.704124808)
+local hydratownQuestCFrame = CFrame.new(5214.33887, 1003.46802, 759.507019, 0.792132139, -0, -0.610349596, 0, 1, -0, 0.610349596, 0, 0.792132139)
+local marinetreeQuestCFrame = CFrame.new(2485.73291, 73.3460083, -6788.625, -0.892922163, 0, -0.450211316, 0, 1, 0, 0.450211316, -0, -0.892922163)
+local turtleadventureQuestCFrame = CFrame.new(-10581.6562, 330.872986, -8761.18652, -0.327717185, -0, -0.944775999, 0, 1, -0, 0.944775999, 0, -0.327717185)
+local deepforestQuestCFrame = CFrame.new(-13234.04, 331.488007, -7625.40088, 0.282471478, 0, -0.959275842, -0, 1, 0, 0.959275842, 0, 0.282471478)
+local deepforest2QuestCFrame = CFrame.new(-12680.3818, 389.971008, -9902.01953, -0.902156353, 0, 0.431409001, 0, 1, 0, -0.431409001, 0, -0.902156353)
+local hauntedcastleQuestCFrame = CFrame.new(-9479.2168, 141.214996, 5566.09277, 0.143543601, 0, 0.989644051, 0, 1, 0, -0.989644051, 0, 0.143543601)
+local hauntedcastle2QuestCFrame = CFrame.new(-9516.99316, 172.016998, 6078.46484, 0.978956699, -0, -0.204067975, 0, 1, -0, 0.204067975, 0, 0.978956699)
+local peanutQuestCFrame = CFrame.new(-2105.53198, 37.25, -10195.5088, -0.766061664, 0, -0.642767608, 0, 1, 0, 0.642767608, 0, -0.766061664)
+local icecreamQuestCFrame = CFrame.new(-819.377014, 64.9260101, -10967.2832, -0.766061664, 0, 0.642767608, 0, 1, 0, -0.642767608, 0, -0.766061664)
+local cake1QuestCFrame = CFrame.new(-2022.29895, 36.928009, -12030.9766, -0.886222482, 0, -0.463259965, 0, 1, 0, 0.463259965, -0, -0.886222482)
+local cake2QuestCFrame = CFrame.new(-1928.31799, 37.7299957, -12840.626, -0.999550819, 0, -0.0299731828, 0, 1, 0, 0.0299731828, -0, -0.999550819)
+local coklat1QuestCFrame = CFrame.new(231.75, 23.8999939, -12200.292, -1, 0, 0, 0, 1, 0, 0, 0, -1)
+local coklat2QuestCFrame = CFrame.new(151.197998, 23.8910065, -12774.6172, 0.422592998, 0, 0.906319618, 0, 1, 0, -0.906319618, 0, 0.422592998)
+local candycaneQuestCFrame = CFrame.new(-1164.49805, 59.2689972, -14492.6182, -0.86624229, 0, -0.499623954, 0, 1, 0, 0.499623954, -0, -0.86624229)
+local tiki1QuestCFrame = CFrame.new(-16548.8164, 55.6060028, -172.811996, 0.968659043, 0, -0.248394191, -0, 1, 0, 0.248394191, 0, 0.968659043)
+local tiki2QuestCFrame = CFrame.new(-16541.0215, 54.7709961, 1051.46106, 0.591424227, -0, -0.806360543, 0, 1, -0, 0.806360543, 0, 0.591424227)
+local tiki3QuestCFrame = CFrame.new(-16665.1914, 104.596008, 1579.69397, -0.968987465, 0, -0.247110948, 0, 1, 0, 0.247110948, -0, -0.968987465)
+
+-- Redeem codes
+local REDEEM_CODES = {
+    "fudd10", "fudd10_V2", "Chandler", "BIGNEWS", "KITT_RESET",
+    "Sub2UncleKizaru", "SUB2GAMERROBOT_RESET1", "Sub2Fer999", "Enyu_is_Pro",
+    "JCWK", "StarcodeHEO", "MagicBUS", "KittGaming", "Sub2CaptainMaui",
+    "Sub2OfficialNoobie", "TheGreatAce", "Sub2NoobMaster123", "Sub2Daigrock",
+    "Axiore", "StrawHatMaine", "TantaiGaming", "Bluxxy", "SUB2GAMERROBOT_EXP1"
+}
+
+local function tambahStatOtomatis()
+    while true do
+        local stats = player:FindFirstChild("Data") and player.Data:FindFirstChild("Stats")
+        if not stats then return end
+
+        local melee = stats:FindFirstChild("Melee")
+        local defense = stats:FindFirstChild("Defense")
+        local sword = stats:FindFirstChild("Sword")
+        
+        if not (melee and defense and sword) then return end
+
+        local meleeLevel = melee:FindFirstChild("Level")
+        local defenseLevel = defense:FindFirstChild("Level")
+        local swordLevel = sword:FindFirstChild("Level")
+
+        if not (meleeLevel and defenseLevel and swordLevel) then return end
+
+
+        if meleeLevel.Value < 2650 then
+            if defenseLevel.Value < meleeLevel.Value - 500 then
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("AddPoint", "Defense", 100)
+            else
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("AddPoint", "Melee", 500)
+            end
+        
+        -- Jika melee sudah mencapai 2650, lanjutkan menambah defense dengan kelipatan 100
+        elseif defenseLevel.Value < 2650 then
+            ReplicatedStorage.Remotes.CommF_:InvokeServer("AddPoint", "Defense", 100)
+
+        -- Jika defense sudah mencapai 2650, lanjutkan menambah sword dengan kelipatan 100
+        elseif swordLevel.Value < 2650 then
+            ReplicatedStorage.Remotes.CommF_:InvokeServer("AddPoint", "Sword", 100)
+        end
+
+        task.wait(0.5)  -- Interval waktu antara penambahan stat
+    end
+end
+
+
+task.spawn(function()
+    local player = game:GetService("Players").LocalPlayer
+    local gui = player:WaitForChild("PlayerGui")
+    local notifFolder = gui:WaitForChild("Notifications", 10)
+
+    if notifFolder then
+        -- Hapus semua notifikasi yang sudah ada
+        for _, notif in pairs(notifFolder:GetChildren()) do
+            notif:Destroy()
+        end
+
+        -- Set up listener agar setiap notifikasi baru langsung dihancurkan
+        notifFolder.ChildAdded:Connect(function(child)
+            task.wait()
+            if child:IsA("TextLabel") or child:IsA("Frame") then
+                child:Destroy()
+            end
+        end)
+    end
+end)
+
+-- Flags
+local isFlying = false
+local sudahUnlockSea2 = false
+local saberquest = false
+getgenv().OnFarm = true
+
+local TweenService = game:GetService("TweenService")
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local humanoid = Character:FindFirstChildOfClass("Humanoid")
+local hrp = Character:WaitForChild("HumanoidRootPart")
+
+Player.CharacterAdded:Connect(function(char)
+    Character = char
+    humanoid = char:WaitForChild("Humanoid")
+    hrp = char:WaitForChild("HumanoidRootPart")
+    print("Respawn detected, Character updated")
+end)
+
+local block = Instance.new("Part")
+block.Size = Vector3.new(1,1,1)
+block.Anchored = true
+block.CanCollide = false
+block.Transparency = 1
+block.Name = "PlayerPlatform_Stabilizer"
+block.Parent = workspace
+block.CFrame = hrp.CFrame
+
+local currentTween = nil
+
+local function stopTween()
+    if currentTween then
+        currentTween:Cancel()
+        currentTween = nil
+    end
+end
+
+local PortalPos = {}
+if isFirstSea then
+    PortalPos = {
+        Vector3.new(-4652, 873, -1754),
+        Vector3.new(-7895, 5547, -380),
+        Vector3.new(61164, 5, 1820),
+        Vector3.new(3865, 5, -1926)
+    }
+elseif isSecondSea then
+    PortalPos = {
+        Vector3.new(-317, 331, 597),
+        Vector3.new(2283, 15, 867),
+        Vector3.new(923, 125, 32853),
+        Vector3.new(-6509, 83, -133)
+    }
+elseif isThirdSea then
+    PortalPos = {
+      Vector3.new(-12471, 374, -7551), -- Mansion
+      Vector3.new(5756, 610, -282), -- Hydra Island
+      Vector3.new(-5092, 315, -3130), -- Castle on the Sea
+      Vector3.new(-12001, 332, -8861), -- Floating Turtle
+      Vector3.new(5319, 23, -93), -- Beautiful Pirate
+      Vector3.new(28286, 14897, 103) -- Temple of Time
+    }
+end
+
+local function GetNearestPortal(pos)
+    if not pos or #PortalPos == 0 then return nil end
+    local shortest = math.huge
+    local closest = nil
+    for _, portal in pairs(PortalPos) do
+        local dist = (portal - pos).Magnitude
+        if dist < shortest then
+            shortest = dist
+            closest = portal
+        end
+    end
+    return closest
+end
+
+local function tweenTo(targetCFrame)
+    stopTween()
+
+    local targetPos = targetCFrame.Position
+    local portal = GetNearestPortal(targetPos)
+    local distToTarget = (block.Position - targetPos).Magnitude
+    local distPortalToTarget = portal and (portal - targetPos).Magnitude or math.huge
+
+    if distToTarget > distPortalToTarget + 250 then
+        -- Teleport block dan player ke portal
+        block.CFrame = CFrame.new(portal)
+        if Player.Character and Player.Character.PrimaryPart then
+            Player.Character.PrimaryPart.CFrame = block.CFrame
+        end
+        task.wait(3)
+    end
+
+    -- Hitung durasi tween
+    local horizontalDist = (Vector3.new(targetPos.X, 0, targetPos.Z) - Vector3.new(block.Position.X, 0, block.Position.Z)).Magnitude
+    if horizontalDist < 1 then return end
+
+    local speed = getgenv().TweenSpeed or 325
+    local duration = horizontalDist / speed
+
+    -- Tween block ke target
+    currentTween = TweenService:Create(block,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+        {CFrame = targetCFrame}
+    )
+    currentTween:Play()
+
+    -- Player nempel ke block selama tween
+    task.spawn(function()
+        while currentTween and currentTween.PlaybackState == Enum.PlaybackState.Playing do
+            if Player.Character and Player.Character.PrimaryPart then
+                Player.Character.PrimaryPart.CFrame = block.CFrame
+            end
+            task.wait()
+        end
+    end)
+
+    currentTween.Completed:Wait()
+
+    -- Reset humanoid biar normal
+    if humanoid then
+        humanoid.AutoRotate = true
+        humanoid.WalkSpeed = 16
+    end
+end
+
+function tweenToRaid(cframe)
+    stopTween()
+
+    local targetPos = cframe.Position
+    local stableCFrame = CFrame.new(targetPos)
+    getgenv().LastTweenTarget = stableCFrame
+
+    -- Hitung jarak horizontal (tanpa Y)
+    local horizontalDist = (Vector3.new(targetPos.X, 0, targetPos.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
+    if horizontalDist < 1 then return end
+
+    local speed = getgenv().TweenSpeed or 325
+    local duration = horizontalDist / speed
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.Out)
+
+    -- Tween langsung ke HRP
+    currentTween = TweenService:Create(hrp, tweenInfo, {CFrame = stableCFrame})
+    currentTween:Play()
+
+    currentTween.Completed:Wait()
+
+    -- Kembalikan kontrol karakter
+    if humanoid then
+        humanoid.AutoRotate = true
+        humanoid.WalkSpeed = 16
+    end
+end
+
+local function teleport(targetCFrame)
+	local hrp = game.Players.LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+	
+	hrp.CFrame = CFrame.new(5.5e-09, -3.4e+38, -1.3e-09, 0, 0, -1, 0)
+	
+	task.wait(0.2)
+
+	hrp.CFrame = targetCFrame
+end
+
+-- NoClip function
+RunService.Stepped:Connect(function()
+    for _, part in pairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = false
+        end
+    end
+end)
+
+-- Check if quest is active
+local function isQuestActive()
+    local success, result = pcall(function()
+        return player.PlayerGui.Main.Quest.Visible
+    end)
+    return success and result
+end
+
+-- Helper function untuk cek RaidTimer
+local function isRaidTimerVisible()
+    local success, result = pcall(function()
+        return player.PlayerGui.Main.TopHUDList.RaidTimer.Visible
+    end)
+    return success and result
+end
+
+-- Redeem codes function
+local function redeemCodes()
+    -- Pastikan hanya berjalan di Sea1 (First Sea)
+    if not isFirstSea then
+        return
+    end
+    
+    local remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Redeem")
+    for _, code in ipairs(REDEEM_CODES) do
+        local success, result = pcall(function()
+            return remote:InvokeServer(code)
+        end)
+        task.wait(5)
+    end
+end
+
+
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+-- Flags pembelian
+_G.flags = {
+    alreadyBoughtBlackLeg = false,
+    alreadyBoughtElectro = false,
+    alreadyBoughtFishmanKarate = false,
+    alreadyBoughtDragonClaw = false,
+    alreadyBoughtSuperhuman = false,
+    alreadyBoughtDeathStep = false,
+    alreadyBoughtElectricClaw = false,
+    alreadyBoughtSharmanKarate = false,
+    alreadyBoughtDragonTalon = false,
+    alreadyBoughtGodHuman = false,
+}
+
+-- Utils
+local function WaitForChild(parent, childName, timeout)
+    timeout = timeout or 5
+    local start = os.clock()
+    local child = parent:FindFirstChild(childName)
+
+    while not child and (os.clock() - start) < timeout do
+        task.wait(0.1)
+        child = parent:FindFirstChild(childName)
+    end
+
+    return child
+end
+
+local function VerifyTool(ToolName)
+    local plrChar = player.Character or player.CharacterAdded:Wait()
+    local plrBag = player:WaitForChild("Backpack")
+    return plrChar:FindFirstChild(ToolName) or plrBag:FindFirstChild(ToolName)
+end
+
+local function GetToolLevel(ToolName)
+    task.wait(0.1)
+    local Tool = VerifyTool(ToolName)
+    if Tool and Tool:FindFirstChild("Level") then
+        return Tool.Level.Value
+    end
+    return 0
+end
+
+local function EquipTool(ToolName)
+    while not player.Character do
+        task.wait(0.5)
+    end
+
+    local character = player.Character
+    if character:FindFirstChild(ToolName) then
+        return true
+    end
+
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return false end
+
+    local tool = WaitForChild(backpack, ToolName, 5)
+    if not tool then return false end
+
+    tool.Parent = character
+    local equippedTool = WaitForChild(character, ToolName, 5)
+    if not equippedTool then return false end
+
+    local equipEvent = equippedTool:FindFirstChild("EquipEvent")
+    if equipEvent and equipEvent:IsA("RemoteEvent") then
+        equipEvent:FireServer(true)
+        return true
+    end
+
+    return false
+end
+
+local function BuyAndEquip(RemoteName, ToolName)
+    local flagName = "alreadyBought"..ToolName:gsub(" ", "")
+    local maxWait = 15
+
+    if not VerifyTool(ToolName) then
+        if not _G.flags[flagName] then
+            ReplicatedStorage.Remotes.CommF_:InvokeServer(RemoteName)
+            _G.flags[flagName] = true
+        end
+
+        local start = os.time()
+        while not VerifyTool(ToolName) and (os.time() - start) < maxWait do
+            task.wait(1)
+        end
+    end
+
+    for i = 1, 3 do
+        if EquipTool(ToolName) then
+            return true
+        end
+        task.wait(1)
+    end
+
+    return false
+end
+
+-- Auto equip logic
+local function AutoEquipFightingStyle()
+    local equipped = false
+    local styleNames = { "God Human", "Dragon Talon", "Sharkman Karate", "Electric Claw", "Death Step", "Superhuman", "Dragon Claw", "Fishman Karate", "Electro", "Black Leg" }
+    for _, name in ipairs(styleNames) do
+        if VerifyTool(name) then
+            EquipTool(name)
+            equipped = true
+            break
+        end
+    end
+
+    if not equipped and VerifyTool("Combat") then
+        EquipTool("Combat")
+    end
+end
+
+-- Logic utama
+local function handleFightingStyles()
+    local styleProgress = {
+        { name = "Black Leg", remote = "BuyBlackLeg", targetLevel = 400 },
+        { name = "Electro", remote = "BuyElectro", targetLevel = 400 },
+        { name = "Fishman Karate", remote = "BuyFishmanKarate", targetLevel = 400 },
+        { name = "Dragon Claw", remoteArgs = { "BlackbeardReward", "DragonClaw", "2" }, targetLevel = 400 },
+        { name = "Superhuman", remote = "BuySuperhuman", targetLevel = 400 },
+        { name = "Death Step", remote = "BuyDeathStep", targetLevel = 400 },
+        { name = "Electric Claw", remote = "BuyElectricClaw", targetLevel = 400 },
+        { name = "Sharkman Karate", remote = "BuySharkmanKarate", targetLevel = 400 },
+        { name = "Dragon Talon", remote = "BuyDragonTalon", targetLevel = 400 },
+        { name = "God Human", remote = "BuyGodHuman", targetLevel = 400 },
+    }
+
+    -- Auto equip saat baru join
+    AutoEquipFightingStyle()
+
+    -- Jika mastery Combat >= 80 dan belum punya Black Leg, beli
+if GetToolLevel("Combat") >= 80 and not VerifyTool("Black Leg") then
+    -- Meminta server untuk memperbarui atau membeli Black Leg
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyBlackLeg")
+    -- Pastikan pembelian sudah selesai
+    local start = os.time()
+    while not VerifyTool("Black Leg") and (os.time() - start) < 5 do
+        task.wait(1)
+    end
+end
+
+
+    -- Lanjut proses style berikutnya
+    for _, style in ipairs(styleProgress) do
+        while GetToolLevel(style.name) < style.targetLevel do
+            if saberquest then
+                task.wait(1)
+            else
+                if not VerifyTool(style.name) then
+                    if style.remoteArgs then
+                        ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(style.remoteArgs))
+                        _G.flags["alreadyBought"..style.name:gsub(" ", "")] = true
+                    else
+                        BuyAndEquip(style.remote, style.name)
+                    end
+                else
+                    EquipTool(style.name)
+                end
+                task.wait(0.5)
+            end
+        end
+    end
+end
+
+-- Buso Haki purchase
+task.spawn(function()
+
+    if not isFirstSea then
+        return
+    end
+   
+    while not player:FindFirstChild("Data") or not player.Data:FindFirstChild("Beli") do
+        task.wait(1)
+    end
+
+    while not beliHakiSudah do
+        local dataBeli = player.Data:FindFirstChild("Beli")
+        if dataBeli and dataBeli.Value >= MIN_BELI_HAKI then
+            local success, hasil = pcall(function()
+                return ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyHaki", "Buso")
+            end)
+            if success and (hasil == 1 or hasil == true) then
+                beliHakiSudah = true
+                break
+            end
+        end
+        task.wait(5) -- cek ulang setiap 5 detik
+    end
+end)
+
+-- Activate Buso
+local function activateBuso()
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
+    end)
+end
+
+-- Character respawn handler
+player.CharacterAdded:Connect(function(char)
+    character = char
+    hrp = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+    task.wait(1)
+    activateBuso()
+    AutoEquipFightingStyle()
+
+    isFlying = false
+
+    if getgenv().LastTweenTarget then
+        task.wait(1)
+        tweenTo(getgenv().LastTweenTarget)
+    end
+end)
+
+-- Initialize functions
+task.spawn(function()
+    task.wait(1)    
+    redeemCodes()
+end)
+
+-- Quest functions
+local function ambilQuest(cframe, questName, index)
+    isFlying = false
+    tweenTo(cframe)
+    task.wait(0.1)
+    local args = {"StartQuest", questName, index}
+    ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+end
+
+-- Enemy spawn positions
+local spawnFolder = ReplicatedStorage:WaitForChild("FortBuilderReplicatedSpawnPositionsFolder")
+local spawnPositions = {}
+
+for _, child in pairs(spawnFolder:GetChildren()) do
+    if not spawnPositions[child.Name] then
+        spawnPositions[child.Name] = {}
+    end
+    table.insert(spawnPositions[child.Name], child.CFrame)
+end
+
+local function isBossAvailable(namaMusuh, level)
+    local label = string.format("%s [Lv. %d] [Boss]", namaMusuh, level)
+    local spawns = workspace:FindFirstChild("_WorldOrigin") and workspace._WorldOrigin:FindFirstChild("EnemySpawns")
+    if spawns and spawns:FindFirstChild(label) then
+        return true
+    end
+
+    for _, enemy in pairs(workspace:WaitForChild("Enemies"):GetChildren()) do
+        if enemy.Name == namaMusuh and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+            return true
+        end
+    end
+
+    return false
+end
+
+
+
+local function serangMusuh(enemy)
+    local humanoid = enemy:FindFirstChild("Humanoid")
+    if humanoid then
+        local targetPos = enemy:FindFirstChild("Head") and enemy.Head.Position + Vector3.new(0, 30, 0) or enemy.HumanoidRootPart.Position + Vector3.new(0, 30, 0)
+        local targetCFrame = CFrame.new(targetPos) * CFrame.Angles(0, hrp.CFrame.Rotation.Y, 0)
+
+        isFlying = true
+        tweenTo(targetCFrame)
+        task.wait(0.01)
+
+        local diedConn
+        diedConn = humanoid.Died:Connect(function()
+            diedConn:Disconnect()
+        end)
+
+        while enemy and humanoid.Health > 0 do
+            local newPos = (enemy:FindFirstChild("Head") and enemy.Head.Position or enemy.HumanoidRootPart.Position) + Vector3.new(0, 30, 0)
+            hrp.CFrame = CFrame.new(newPos) * CFrame.Angles(0, hrp.CFrame.Rotation.Y, 0)
+
+            task.wait(0.00001)
+        end
+    end
+end
+
+local function serangMusuhRaid(enemy)
+    local humanoid = enemy:FindFirstChild("Humanoid")
+    if humanoid then
+        local targetPos = enemy:FindFirstChild("Head") and enemy.Head.Position + Vector3.new(0, 30, 0) or enemy.HumanoidRootPart.Position + Vector3.new(0, 30, 0)
+        local targetCFrame = CFrame.new(targetPos) * CFrame.Angles(0, hrp.CFrame.Rotation.Y, 0)
+
+        isFlying = true
+        tweenToRaid(targetCFrame)
+        task.wait(0.01)
+
+        local diedConn
+        diedConn = humanoid.Died:Connect(function()
+            diedConn:Disconnect()
+        end)
+
+        while enemy and humanoid.Health > 0 do
+            local newPos = (enemy:FindFirstChild("Head") and enemy.Head.Position or enemy.HumanoidRootPart.Position) + Vector3.new(0, 30, 0)
+            hrp.CFrame = CFrame.new(newPos) * CFrame.Angles(0, hrp.CFrame.Rotation.Y, 0)
+
+            attackRemote:FireServer(0.001)
+            
+            local parts = {}
+            for _, child in ipairs(enemy:GetChildren()) do
+                if child:IsA("BasePart") and child.Name ~= "HumanoidRootPart" then
+                    table.insert(parts, child)
+                end
+            end
+
+            local targetPart = parts[math.random(1, #parts)]
+            if targetPart then
+                _G.SendHitsToServer(targetPart, {})
+            end
+
+            task.wait(0.00001)
+        end
+    end
+end
+
+function autoV()
+    -- Tunggu Players service siap
+    local Players = game:WaitForChild("Players")
+    local LocalPlayer = Players.LocalPlayer or Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+
+    -- Tunggu workspace.Characters siap
+    local workspaceCharacters = workspace:WaitForChild("Characters")
+
+    -- Ambil nama player
+    local playerName = LocalPlayer.Name
+
+    while true do
+        -- Cek apakah ada Black Leg atau Death Step
+        local char = workspaceCharacters:FindFirstChild(playerName)
+        if char then
+            local hasBlackLeg = char:FindFirstChild("Black Leg")
+            local hasDeathStep = char:FindFirstChild("Death Step")
+            
+            if hasBlackLeg or hasDeathStep then
+                print("Fighting style ditemukan, mulai auto skill V.")
+                while true do
+                    -- Pastikan char masih ada
+                    char = workspaceCharacters:FindFirstChild(playerName)
+                    if not char then
+                        break
+                    end
+                    -- Simulate key press V
+                    game:GetService("VirtualInputManager"):SendKeyEvent(true, "V", false, game)
+                    wait(0.1)
+                    game:GetService("VirtualInputManager"):SendKeyEvent(false, "V", false, game)
+                    -- Tunggu 30 detik
+                    wait(5)
+                    
+                    -- Cek lagi apakah fighting style masih ada
+                    char = workspaceCharacters:FindFirstChild(playerName)
+                    if not char or (not char:FindFirstChild("Black Leg") and not char:FindFirstChild("Death Step")) then
+                        print("Fighting style hilang, berhenti spam skill.")
+                        break
+                    end
+                end
+            else
+                print("Tidak ada fighting style, tunggu 5 menit sebelum cek lagi.")
+                wait(10) -- 5 menit
+            end
+        else
+            print("Karakter tidak ditemukan, tunggu 5 menit sebelum cek lagi.")
+            wait(10)
+        end
+        wait(1) -- Tunggu sebentar sebelum loop cek ulang
+    end
+end
+
+
+_G.FastAttack = true
+
+if _G.FastAttack then
+    local _ENV = (getgenv or getrenv or getfenv)()
+
+    local function SafeWaitForChild(parent, childName)
+        local success, result = pcall(function()
+            return parent:WaitForChild(childName)
+        end)
+        if not success or not result then
+            warn("noooooo: " .. childName)
+        end
+        return result
+    end
+
+    local function WaitChilds(path, ...)
+        local last = path
+        for _, child in {...} do
+            last = last:FindFirstChild(child) or SafeWaitForChild(last, child)
+            if not last then break end
+        end
+        return last
+    end
+
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local CollectionService = game:GetService("CollectionService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local TeleportService = game:GetService("TeleportService")
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local Player = Players.LocalPlayer
+
+    if not Player then
+        warn("Không tìm thấy người chơi cục bộ.")
+        return
+    end
+
+    local Remotes = SafeWaitForChild(ReplicatedStorage, "Remotes")
+    if not Remotes then return end
+
+    local Validator = SafeWaitForChild(Remotes, "Validator")
+    local CommF = SafeWaitForChild(Remotes, "CommF_")
+    local CommE = SafeWaitForChild(Remotes, "CommE")
+
+    local ChestModels = SafeWaitForChild(workspace, "ChestModels")
+    local WorldOrigin = SafeWaitForChild(workspace, "_WorldOrigin")
+    local Characters = SafeWaitForChild(workspace, "Characters")
+    local Enemies = SafeWaitForChild(workspace, "Enemies")
+    local Map = SafeWaitForChild(workspace, "Map")
+
+    local EnemySpawns = SafeWaitForChild(WorldOrigin, "EnemySpawns")
+    local Locations = SafeWaitForChild(WorldOrigin, "Locations")
+
+    local RenderStepped = RunService.RenderStepped
+    local Heartbeat = RunService.Heartbeat
+    local Stepped = RunService.Stepped
+
+    local Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
+    local Net = SafeWaitForChild(Modules, "Net")
+
+    local sethiddenproperty = sethiddenproperty or function(...) return ... end
+    local setupvalue = setupvalue or (debug and debug.setupvalue)
+    local getupvalue = getupvalue or (debug and debug.getupvalue)
+
+    local Settings = {
+        AutoClick = true,
+        ClickDelay = 0
+    }
+
+    local Module = {}
+
+    Module.FastAttack = (function()
+        if _ENV.rz_FastAttack then
+            return _ENV.rz_FastAttack
+        end
+
+        local FastAttack = {
+            Distance = 100,
+            attackMobs = true,
+            attackPlayers = true,
+            Equipped = nil
+        }
+
+        local RegisterAttack = SafeWaitForChild(Net, "RE/RegisterAttack")
+        local RegisterHit = SafeWaitForChild(Net, "RE/RegisterHit")
+
+        local function IsAlive(character)
+            return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
+        end
+
+        local function ProcessEnemies(OthersEnemies, Folder)
+            local BasePart = nil
+            for _, Enemy in Folder:GetChildren() do
+                local Head = Enemy:FindFirstChild("Head")
+                if Head and IsAlive(Enemy) and Player:DistanceFromCharacter(Head.Position) < FastAttack.Distance then
+                    if Enemy ~= Player.Character then
+                        table.insert(OthersEnemies, { Enemy, Head })
+                        BasePart = Head
+                    end
+                end
+            end
+            return BasePart
+        end
+
+        function FastAttack:Attack(BasePart, OthersEnemies)
+            if not BasePart or #OthersEnemies == 0 then return end
+            RegisterAttack:FireServer(Settings.ClickDelay or 0)
+            RegisterHit:FireServer(BasePart, OthersEnemies)
+        end
+
+        function FastAttack:AttackNearest()
+            local OthersEnemies = {}
+            local Part1 = ProcessEnemies(OthersEnemies, Enemies)
+            local Part2 = ProcessEnemies(OthersEnemies, Characters)
+
+            local character = Player.Character
+            if not character then return end
+            local equippedWeapon = character:FindFirstChildOfClass("Tool")
+
+            if equippedWeapon and equippedWeapon:FindFirstChild("LeftClickRemote") then
+                for _, enemyData in ipairs(OthersEnemies) do
+                    local enemy = enemyData[1]
+                    local direction = (enemy.HumanoidRootPart.Position - character:GetPivot().Position).Unit
+                    pcall(function()
+                        equippedWeapon.LeftClickRemote:FireServer(direction, 1)
+                    end)
+                end
+            elseif #OthersEnemies > 0 then
+                self:Attack(Part1 or Part2, OthersEnemies)
+            else
+                task.wait(0)
+            end
+        end
+
+        function FastAttack:BladeHits()
+            local Equipped = IsAlive(Player.Character) and Player.Character:FindFirstChildOfClass("Tool")
+            if Equipped and Equipped.ToolTip ~= "Gun" then
+                self:AttackNearest()
+            else
+                task.wait(0)
+            end
+        end
+
+        task.spawn(function()
+            while task.wait(Settings.ClickDelay) do
+                if Settings.AutoClick then
+                    FastAttack:BladeHits()
+                end
+            end
+        end)
+
+        _ENV.rz_FastAttack = FastAttack
+        return FastAttack
+    end)()
+end
+loadstring([[
+replaceclosure(require(game:GetService("ReplicatedStorage").Effect.Container.Death), function() end)
+replaceclosure(require(game:GetService("ReplicatedStorage").Effect.Container.Respawn), function() end)
+]])()
+local function BringMob(huh, targetCFrame)
+    for i, v in pairs(workspace:WaitForChild("Enemies"):GetChildren()) do
+        if v.Name == huh and v.Parent and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+            local randomOffset = Vector3.new(
+                math.random(-10, 10),
+                math.random(0, 5),
+                math.random(-10, 10)
+            )
+            v.HumanoidRootPart.CFrame = targetCFrame + randomOffset
+            v.Humanoid.JumpPower = 0
+            v.Humanoid.WalkSpeed = 0
+            v.HumanoidRootPart.Transparency = 1
+            v.HumanoidRootPart.CanCollide = false
+            v.Head.CanCollide = false
+            if v.Humanoid:FindFirstChild("Animator") then
+                v.Humanoid.Animator:Destroy()
+            end
+            if not v.HumanoidRootPart:FindFirstChild("Lock") then
+                local lock = Instance.new("BodyVelocity")
+                lock.Parent = v.HumanoidRootPart
+                lock.Name = "Lock"
+                lock.MaxForce = Vector3.new(100000, 100000, 100000)
+                lock.Velocity = Vector3.new(0, 0, 0)
+            end
+            sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
+            v.Humanoid:ChangeState(11)
+        end
+    end
+end
+
+_G.Bring = true
+local function cariDanSerangMusuh(namaMusuh)
+    local points = spawnPositions[namaMusuh]
+    local targetCFrame = nil
+
+    while isQuestActive() do
+        local found = false
+
+        for _, enemy in pairs(workspace:WaitForChild("Enemies"):GetChildren()) do
+            if enemy.Name == namaMusuh and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                found = true
+
+                if not targetCFrame then
+                    targetCFrame = enemy.HumanoidRootPart.CFrame
+
+                    if _G.Bring then
+                        spawn(function()
+                            while isQuestActive() and targetCFrame do
+                                BringMob(namaMusuh, targetCFrame)
+                                task.wait(0.5)
+                            end
+                        end)
+                    end
+                end
+
+                serangMusuh(enemy)
+                break
+            end
+        end
+
+        if not found then
+            if points and #points > 0 then
+                tweenTo(points[math.random(1, #points)])
+            end
+            task.wait(0.01)
+        end
+    end
+end
+
+-- Start background tasks
+task.spawn(tambahStatOtomatis)
+task.spawn(handleFightingStyles)
+task.spawn(AutoEquipFightingStyle)
+activateBuso()
+
+-- Fungsi Get_Fruit mapping nama buah ke kode remote
+local function Get_Fruit(Fruit)
+    local mapping = {
+        ["Rocket Fruit"] = "Rocket-Rocket",
+        ["Spin Fruit"] = "Spin-Spin",
+        ["Chop Fruit"] = "Chop-Chop",
+        ["Spring Fruit"] = "Spring-Spring",
+        ["Bomb Fruit"] = "Bomb-Bomb",
+        ["Smoke Fruit"] = "Smoke-Smoke",
+        ["Spike Fruit"] = "Spike-Spike",
+        ["Flame Fruit"] = "Flame-Flame",
+        ["Falcon Fruit"] = "Falcon-Falcon",
+        ["Ice Fruit"] = "Ice-Ice",
+        ["Sand Fruit"] = "Sand-Sand",
+        ["Dark Fruit"] = "Dark-Dark",
+        ["Ghost Fruit"] = "Ghost-Ghost",
+        ["Diamond Fruit"] = "Diamond-Diamond",
+        ["Light Fruit"] = "Light-Light",
+        ["Rubber Fruit"] = "Rubber-Rubber",
+        ["Barrier Fruit"] = "Barrier-Barrier",
+        ["Magma Fruit"] = "Magma-Magma",
+        ["Quake Fruit"] = "Quake-Quake",
+        ["Buddha Fruit"] = "Buddha-Buddha",
+        ["Love Fruit"] = "Love-Love",
+        ["Spider Fruit"] = "Spider-Spider",
+        ["Sound Fruit"] = "Sound-Sound",
+        ["Phoenix Fruit"] = "Phoenix-Phoenix",
+        ["Portal Fruit"] = "Portal-Portal",
+        ["Rumble Fruit"] = "Rumble-Rumble",
+        ["Pain Fruit"] = "Pain-Pain",
+        ["Blizzard Fruit"] = "Blizzard-Blizzard",
+        ["Gravity Fruit"] = "Gravity-Gravity",
+        ["Mammoth Fruit"] = "Mammoth-Mammoth",
+        ["T-Rex Fruit"] = "T-Rex-T-Rex",
+        ["Dough Fruit"] = "Dough-Dough",
+        ["Shadow Fruit"] = "Shadow-Shadow",
+        ["Venom Fruit"] = "Venom-Venom",
+        ["Control Fruit"] = "Control-Control",
+        ["Spirit Fruit"] = "Spirit-Spirit",
+        ["Dragon Fruit"] = "Dragon-Dragon",
+        ["Leopard Fruit"] = "Leopard-Leopard",
+        ["Kitsune Fruit"] = "Kitsune-Kitsune"
+    }
+    return mapping[Fruit]
+end
+
+-- Daftar buah yang boleh disimpan di Second Sea
+local Sea2_AllowedFruits = {
+    ["Magma Fruit"] = true,
+    ["Quake Fruit"] = true,
+    ["Buddha Fruit"] = true,
+    ["Love Fruit"] = true,
+    ["Spider Fruit"] = true,
+    ["Sound Fruit"] = true,
+    ["Phoenix Fruit"] = true,
+    ["Portal Fruit"] = true,
+    ["Rumble Fruit"] = true,
+    ["Pain Fruit"] = true,
+    ["Blizzard Fruit"] = true,
+    ["Gravity Fruit"] = true,
+    ["Mammoth Fruit"] = true,
+    ["T-Rex Fruit"] = true,
+    ["Dough Fruit"] = true,
+    ["Shadow Fruit"] = true,
+    ["Venom Fruit"] = true,
+    ["Control Fruit"] = true,
+    ["Spirit Fruit"] = true,
+    ["Dragon Fruit"] = true,
+    ["Leopard Fruit"] = true,
+    ["Kitsune Fruit"] = true
+}
+
+getgenv().CanStoreFruit = nil
+
+local function CanStoreFruit(fruitName)
+    -- Jika flag global disetel, ikuti nilainya
+    if getgenv().CanStoreFruit ~= nil then
+        return getgenv().CanStoreFruit
+    end
+
+    if not isSecondSea then return true end
+
+    local level = player:FindFirstChild("Data") and player.Data:FindFirstChild("Level")
+    local currentLevel = level and level.Value or 0
+
+    if currentLevel >= 1100 then
+        return Sea2_AllowedFruits[fruitName]
+    else
+        return true -- level < 1100 → tetap boleh store
+    end
+end
+
+getgenv().AutoStoreFruits = true
+
+task.spawn(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Remote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+    local Players = game:GetService("Players")
+    local Player = Players.LocalPlayer
+
+    while getgenv().AutoStoreFruits do
+        -- Beli buah dari Cousin dulu
+        Remote:InvokeServer("Cousin", "Buy")
+        task.wait(1) -- beri waktu buah masuk ke backpack
+
+        local backpack = Player:FindFirstChild("Backpack")
+        local character = Player.Character
+
+        local function handleContainer(container)
+            for _, item in ipairs(container:GetChildren()) do
+                if item:IsA("Tool") and item:FindFirstChild("Fruit") then
+                    local fruitName = item.Name
+                    if CanStoreFruit(fruitName) then
+                        local fruitCode = Get_Fruit(fruitName)
+                        if fruitCode then
+                            Remote:InvokeServer("StoreFruit", fruitCode, item)
+                        end
+                    end
+                end
+            end
+        end
+
+        if character then handleContainer(character) end
+        if backpack then handleContainer(backpack) end
+
+        task.wait(60)
+    end
+end)
+
+local function memilikiItem(namaItem)
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local remote = ReplicatedStorage.Modules.Net["RF/ReadPlayerData"]
+    
+    local success, result = pcall(function()
+        return remote:InvokeServer()
+    end)
+    
+    if success and result and result.Items then
+        return result.Items[namaItem] == true
+    end
+    return false
+end
+
+local function SelesaikanBartiloQuest()
+    local function ambilProgress()
+        local ok, progress = pcall(function()
+            return ReplicatedStorage.Remotes.CommF_:InvokeServer("BartiloQuestProgress")
+        end)
+        return ok and progress or nil
+    end
+
+    local progress = ambilProgress()
+    if not progress then
+        warn("Gagal ambil progress Bartilo!")
+        return
+    end
+    if progress.DidPlates then
+        print("Semua Bartilo Quest sudah selesai!")
+        progress.SudahSelesaiBartilo = true
+        saveProgress()
+        return
+    end
+
+    -- STEP 1: Bunuh Bandit
+    if not progress.KilledBandits then
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", "BartiloQuest", 1)
+        task.wait(1)
+        local swanSpawns = spawnPositions["Swan Pirate"]
+        while true do
+            progress = ambilProgress()
+            if progress.KilledBandits then break end
+            local found = false
+            for _, enemy in pairs(workspace.Enemies:GetChildren()) do
+                if enemy.Name == "Swan Pirate" and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                    serangMusuh(enemy)
+                    found = true
+                    break
+                end
+            end
+            if not found and swanSpawns then
+                tweenTo(swanSpawns[math.random(1, #swanSpawns)])
+                task.wait(0.2)
+            end
+        end
+        print("Step Bandit selesai!")
+    end
+
+    -- STEP 2: Bunuh Jeremy
+    progress = ambilProgress()
+    if not progress.KilledSpring then
+        local jeremySpawns = spawnPositions["Jeremy"]
+        if jeremySpawns and #jeremySpawns > 0 then
+            tweenTo(jeremySpawns[1])
+            task.wait(0.1)
+        end
+
+        while true do
+            progress = ambilProgress()
+            if progress.KilledSpring then break end
+            local foundJeremy = false
+            for _, enemy in pairs(workspace.Enemies:GetChildren()) do
+                if enemy.Name == "Jeremy" and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                    foundJeremy = true
+                    serangMusuh(enemy)
+                    break
+                end
+            end
+            if not foundJeremy then
+                getgenv().AutoHopEnabled = true
+                HopServer()
+                return
+            end
+            task.wait(0.5)
+        end
+        print("Step Jeremy selesai!")
+    end
+
+    -- STEP 3: Plates, validasi per-plate sampai benar-benar aktif
+    progress = ambilProgress()
+    if not progress.DidPlates then
+        local plateFolder = workspace.Map.Dressrosa:FindFirstChild("BartiloPlates")
+        if plateFolder then
+            for i = 1, 8 do
+                local plate = plateFolder:FindFirstChild("Plate" .. i)
+                if plate then
+                    repeat
+                        teleport(plate.CFrame)
+                        task.wait(2)
+                    until plate.Color == Color3.fromRGB(150, 255, 125)
+                end
+            end
+        end
+        -- Pastikan DidPlates dari server sudah TRUE
+        while true do
+            progress = ambilProgress()
+            if progress.DidPlates then break end
+            task.wait(0.5)
+        end
+        print("Plates selesai!")
+    end
+
+    progress.SudahSelesaiBartilo = true
+    saveProgress()
+    print("Semua Bartilo Quest selesai!")
+end
+
+local function FarmLibraryKey()
+    if not isSecondSea then return end
+    if progress.SudahAmbilLibraryKey then return end
+
+    local libraryDoor = workspace.Map.IceCastle
+        and workspace.Map.IceCastle:FindFirstChild("Hall")
+        and workspace.Map.IceCastle.Hall:FindFirstChild("LibraryDoor")
+        and workspace.Map.IceCastle.Hall.LibraryDoor:FindFirstChild("PhoeyuDoor")
+
+    local kunci = CFrame.new(6376.99658, 296.949158, -6844.0376, -0.863927364, -0, -0.503616393, -0, 1, -0, 0.503616393, 0, -0.863927364)
+
+    -- Cek apakah pintu sudah terbuka
+    if not libraryDoor or (libraryDoor:IsA("BasePart") and libraryDoor.CanTouch == false) then
+        progress.SudahAmbilLibraryKey = true
+        saveProgress()
+        return
+    end
+
+    local bossCFrames = spawnPositions["Awakened Ice Admiral"]
+    if not bossCFrames or #bossCFrames == 0 then
+        return
+    end
+
+    -- Tunggu sampai kunci ditemukan
+    while not player.Backpack:FindFirstChild("Library Key") do
+        isFlying = true
+        tweenTo(bossCFrames[1])
+        task.wait(0.1)
+
+        local found = false
+        for _, enemy in pairs(workspace:WaitForChild("Enemies"):GetChildren()) do
+            if enemy.Name == "Awakened Ice Admiral" and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                found = true
+                serangMusuh(enemy)
+                repeat task.wait(0.3) until not enemy:FindFirstChild("Humanoid") or enemy.Humanoid.Health <= 0
+                break
+            end
+        end
+
+        if not found then
+            getgenv().AutoHopEnabled = true
+            HopServer()
+            return
+        end
+    end
+
+    -- Jika kunci ditemukan, lanjutkan
+    if player.Backpack:FindFirstChild("Library Key") then
+        local key = player.Backpack:FindFirstChild("Library Key")
+        if key then
+            key.Parent = player.Character
+        end
+      
+        tweenTo(kunci)
+        task.wait(1)
+        -- Menunggu pintu terbuka dengan pcall untuk mencegah error jika pintu tidak ditemukan atau ada kesalahan lainnya
+        local success, err = pcall(function()
+            while libraryDoor and libraryDoor:IsA("BasePart") and not libraryDoor.CanTouch do
+                task.wait(1)
+            end
+        end)       
+        
+        progress.SudahAmbilLibraryKey = true
+        saveProgress()
+    end
+end
+
+local function FarmWaterKey()
+  if not isSecondSea then return end
+  if progress.SudahAmbilWaterKey then return end
+  
+    local function hasWaterKey()
+        return VerifyTool("Water Key")
+    end
+
+    local tideSpawns = spawnPositions["Tide Keeper"]
+    if not tideSpawns or #tideSpawns == 0 then
+        return
+    end
+    
+        while not player.Backpack:FindFirstChild("Water Key") and not player.Character:FindFirstChild("Library Key") do
+        isFlying = true
+        tweenTo(tideSpawns[1])
+        task.wait(0.1)
+
+        local bossFound = false
+        for _, enemy in pairs(workspace:WaitForChild("Enemies"):GetChildren()) do
+            if enemy.Name == "Tide Keeper"
+               and enemy:FindFirstChild("Humanoid")
+               and enemy.Humanoid.Health > 0 then
+                bossFound = true
+                serangMusuh(enemy)
+            end
+        end
+
+        if not bossFound then
+            getgenv().AutoHopEnabled = true
+             HopServer()
+             return
+        end
+    end
+    
+    if hasWaterKey() then
+      progress.SudahAmbilWaterKey = true
+      saveProgress()
+            
+   -- Equip key if in backpack
+      local key = player.Backpack:FindFirstChild("Water Key")
+        if key then
+            key.Parent = player.Character
+        end
+
+    local daigrockCFrame = CFrame.new(-2599.64795, 238.194687, -10316.0615, -0.292105317, 0, 0.956386209, 0, 1, 0, -0.956386209, 0, -0.292105317)
+    tweenTo(daigrockCFrame)
+    task.wait(1.5)
+
+    local args = { "BuySharkmanKarate", true }
+    local success, result = pcall(function()
+        return ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+    end)
+end
+end
+
+local function SelesaikanElectricClawQuest1600()
+    if progress.SudahAmbilElectricClaw then return end
+    local player = game.Players.LocalPlayer
+    local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- CFrame NPC Set Spawn Point
+    local spawnNPC = CFrame.new(-12551.0156, 336.261993, -7409.53418, 0.995298803, 0, -0.0968520641, 0, 1, 0, 0.0968520641, 0, 0.995298803)
+
+    -- CFrame NPC Previous Hero
+    local previousHero = CFrame.new(-10371.4717, 330.764008, -10131.4199, -0.804111481, 0, -0.594478428, 0, 1, 0, 0.594478428, 0, -0.804111481)
+
+    -- Langkah 1: Tween ke NPC Spawn dan Set Spawn
+    tweenTo(spawnNPC)
+    task.wait(1)
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("SetSpawnPoint")
+    task.wait(0.5)
+
+    -- Langkah 2: Tween ke NPC Previous Hero dan mulai quest
+    tweenTo(previousHero)
+    task.wait(1)
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyElectricClaw", "Start")
+    task.wait(1)
+
+    -- Langkah 3: Tunggu sampai GUI notifikasi muncul
+    local notifTemplate = player:WaitForChild("PlayerGui"):WaitForChild("Notifications"):WaitForChild("NotificationTemplate", 10)
+    while not notifTemplate or not notifTemplate.Visible do
+        task.wait(1)
+    end
+
+    -- Langkah 4: Teleport balik ke spawn
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("TeleportToSpawn")
+
+    -- Langkah 5: Tunggu sampai posisi dekat dengan spawn NPC
+    local maxDistance = 25
+    for _ = 1, 100 do
+        local dist = (hrp.Position - spawnNPC.Position).Magnitude
+        if dist <= maxDistance then
+            break
+        end
+        task.wait(0.1)
+    end
+
+    progress.SudahAmbilElectricClaw = true
+    saveProgress()
+end
+
+local function jalankanEliteHunter()
+    local player = game.Players.LocalPlayer
+    local ReplicatedStorage = game.ReplicatedStorage
+    local CommF = ReplicatedStorage.Remotes.CommF_
+    local guideFrame = player.PlayerGui.Main.Guide.LeftFrame.IconFrame.ViewportFrame
+
+    -- Jika sudah 30 kill, langsung ambil Yama
+    if (progress.JumlahEliteHunter or 0) >= 30 then
+        -- Posisi pedang Yama
+        local targetPos = Vector3.new(5251.9, 17.18, 453.6)
+        local clickDetector = workspace.Map.Waterfall.SealedKatana.Hitbox.ClickDetector
+
+        -- Tween ke posisi
+        tweenTo(CFrame.new(targetPos))
+        task.wait(1)
+
+        -- Klik pedang 10 kali
+        for i = 1, 10 do
+            clickDetector:FireClick()
+            task.wait(0.3)
+        end
+
+        -- Tandai progress sudah ambil Yama
+        progress.YamaSudahDiambil = true
+        saveProgress()
+
+        return
+    end
+
+    -- Mulai quest Elite Hunter
+    CommF:InvokeServer("EliteHunter")
+    task.wait(0.5)
+
+    local bossName = nil
+    for _, nama in ipairs({ "Diablo", "Deandre", "Urban" }) do
+        if guideFrame:FindFirstChild(nama) then
+            bossName = nama
+            break
+        end
+    end
+
+    if not bossName then
+        return HopServer()
+    end
+
+    -- Ambil boss
+    local bossModel = ReplicatedStorage:FindFirstChild(bossName)
+    local hrp = bossModel and bossModel:FindFirstChild("HumanoidRootPart")
+
+    if not hrp then
+        local bossEnemy = workspace:FindFirstChild("Enemies") and workspace.Enemies:FindFirstChild(bossName)
+        if bossEnemy and bossEnemy:FindFirstChild("HumanoidRootPart") then
+            hrp = bossEnemy.HumanoidRootPart
+        end
+    end
+
+    if not hrp then
+        return
+    end
+
+    tweenTo(hrp.CFrame)
+    task.wait(1)
+
+    -- Cari musuh hidup
+    for _, musuh in ipairs(workspace.Enemies:GetChildren()) do
+        if musuh.Name == bossName and musuh:FindFirstChild("Humanoid") and musuh.Humanoid.Health > 0 then
+            
+            -- Pasang event listener
+            musuh.Humanoid.Died:Connect(function()
+                progress.JumlahEliteHunter = (progress.JumlahEliteHunter or 0) + 1
+                saveProgress()
+            end)
+
+            -- Serang musuh
+            serangMusuh(musuh)
+            return
+        end
+    end
+end
+
+-- ✅ Fungsi utama beli Bones dan lanjutkan ke Elite Hunter
+local function autoBuyBonesDanEliteHunter()
+    local player = game.Players.LocalPlayer
+    local level = player.Data.Level
+    local backpack = player.Backpack
+    local ReplicatedStorage = game.ReplicatedStorage
+    local CommF = ReplicatedStorage.Remotes.CommF_
+
+    if progress.SudahDapatFireEssence then 
+    jalankanEliteHunter()
+    return
+    end
+    
+    if level.Value < 2650 then return end
+
+    -- Cooldown 30 menit
+    if progress.LastBuyBonesTime and (os.time() - progress.LastBuyBonesTime < 1800) then
+        local sisa = 1800 - (os.time() - progress.LastBuyBonesTime)
+        jalankanEliteHunter()
+        return
+    end
+
+    local function getJumlahBones()
+        local success, result = pcall(function()
+            return ReplicatedStorage.Modules.Net["RF/ReadPlayerData"]:InvokeServer()
+        end)
+        if success and result and result.EtcItems then
+            return tonumber(result.EtcItems["Bones"]) or 0
+        end
+        return 0
+    end
+
+    local function beliSekali()
+        CommF:InvokeServer("Bones", "Buy", 1, 1)
+        task.wait(0.3)
+    end
+
+    local function adaFireEssence()
+        return backpack:FindFirstChild("Fire Essence") ~= nil
+    end
+
+    -- Mulai pembelian bones
+    local bonesSebelum = getJumlahBones()
+    beliSekali()
+    local bonesSesudah = getJumlahBones()
+
+    if bonesSebelum - bonesSesudah >= 1 then
+
+        if bonesSesudah < 800 then
+            ambilQuest(hauntedcastle2QuestCFrame, "HauntedQuest2", 2)
+            isFlying = true
+            cariDanSerangMusuh("Posessed Mummy")
+        end
+
+        for i = 1, 9 do
+            beliSekali()
+            if adaFireEssence() then
+                CommF:InvokeServer("BuyDragonTalon", true)
+                progress.SudahDapatFireEssence = true
+                saveProgress()
+                return
+            end
+        end
+
+        local bonesAkhir = getJumlahBones()
+        if bonesSebelum - bonesAkhir < 5 then
+            jalankanEliteHunter()
+            return
+        end
+        jalankanEliteHunter()
+    else
+        progress.LastBuyBonesTime = os.time()
+        saveProgress()
+        jalankanEliteHunter()
+    end
+end
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
+local CommF = Remotes:WaitForChild("CommF_")
+local blackLeg1 = char:FindFirstChild("Black Leg")
+local blackLeg2 = player.Backpack:FindFirstChild("Black Leg")
+
+-- Posisi
+local platePositions = {
+    CFrame.new(-1180.896, 21.001, 187.861),
+    CFrame.new(-1421.200, 44.5, 21.6),
+    CFrame.new(-1648.495, 19.5, 437.795),
+    CFrame.new(-1324.101, 31.456, -461.404),
+    CFrame.new(-1152.165, -1.210, -700.432),
+}
+local sickManPosition = CFrame.new(1457.938, 87.6, -1389.952)
+local richManPosition = CFrame.new(-906.798, 12.45, 4077.741)
+local mobLeaderPosition = CFrame.new(-2880.716, 9.13, 5430.853)
+local relicAltarPosition = CFrame.new(-1407.135, 30.166, 5.021)
+local saberExpertPosition = CFrame.new(-1484.351, 22.935, -89.500)
+local cup = CFrame.new(1114.260986328125, 4.16900634765625, 4366.15380859375)
+local water = CFrame.new(1392.3114, 37.6622238, -1324.37781, -0.435235202, 7.76151126e-08, -0.900316775, -3.13575619e-08, 1, 1.01367682e-07, 0.900316775, 7.23505238e-08, -0.435235202)
+local bakar = CFrame.new(1114.90137, 5.23576164, 4350.45459, -0.536344588, 2.50615351e-08, 0.843999088, -3.30309753e-08, 1, -5.06843207e-08, -0.843999088, -5.5062376e-08, -0.536344588)
+
+-- Fungsi ambil progress
+local function getSaberProgress()
+    local success, progress = pcall(function()
+        return CommF:InvokeServer("ProQuestProgress")
+    end)
+    if success and progress then
+        return progress
+    end
+    return nil
+end
+
+local function attackEnemy(enemyName)
+        while true do
+            local enemy = nil
+            for _, mob in pairs(workspace:WaitForChild("Enemies"):GetChildren()) do
+                if mob.Name == enemyName and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                    enemy = mob
+                    break
+                end
+            end
+            
+            -- Jika musuh tidak ditemukan, keluar loop
+            if not enemy then break end
+            
+            -- Cari bagian Head musuh dan pastikan karakter pemain valid
+            local enemyHead = enemy:FindFirstChild("Head")
+            local humanoid = enemy:FindFirstChild("Humanoid")
+            
+            if enemyHead and humanoid and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                -- Posisikan pemain di atas musuh
+                local hrp = player.Character.HumanoidRootPart
+                local newPos = enemyHead.Position + Vector3.new(0, 30, 0)
+                hrp.CFrame = CFrame.new(newPos) * CFrame.Angles(0, hrp.CFrame.Rotation.Y, 0)
+                
+                -- Serang musuh
+                ReplicatedStorage.Modules.Net["RE/RegisterAttack"]:FireServer(0.5)
+                _G.SendHitsToServer(enemyHead, {})
+            end
+            
+            task.wait(0.01)
+        end
+        
+        return true
+    end
+
+local function isQuestSaberDone()
+    local success, progress = pcall(function()
+        return CommF:InvokeServer("ProQuestProgress")
+    end)
+    if success and progress then
+        return progress.TalkedSon == true
+            and progress.KilledMob == true
+            and progress.UsedCup == true
+            and progress.KilledShanks == true
+            and progress.UsedRelic == true
+            and progress.UsedTorch == true
+    end
+    return false
+end
+
+
+-- === FUNGSI MAIN ===
+local function questSaberFull()
+    print("=== [DEBUG] LOOP QUEST SABER FULL ===")
+    local progress = getSaberProgress()
+    if not progress then warn("Gagal ambil progress"); return end
+    print("[DEBUG] Progress => UsedTorch:", progress.UsedTorch, " UsedCup:", progress.UsedCup, " UsedRelic:", progress.UsedRelic)
+    
+    -- Perbesar area air & api
+local waterPart = workspace.Map.Ice.ParticleDrop.Water
+waterPart.Size = Vector3.new(200, 10, 200)
+local firePart = workspace.Map.Desert.Burn.Fire
+firePart.Size = Vector3.new(200, 10, 200)
+
+-- Flag di awal
+blackLeg1.Parent = player.Backpack
+saberquest = true
+
+    -- Step 1: Tekan plates
+    local jungle = workspace:WaitForChild("Map"):WaitForChild("Jungle")
+    local platesFolder = jungle:WaitForChild("QuestPlates")
+    for i, pos in ipairs(platePositions) do
+        local plateName = "Plate"..i
+        local plate = platesFolder:FindFirstChild(plateName)
+        if plate then
+            local button = plate:FindFirstChild("Button")
+            if button and button.BrickColor ~= BrickColor.new("Camo") then
+                print("[DEBUG] Tween ke Plate "..i)
+                tweenTo(pos + Vector3.new(0,3,0))
+                task.wait(1)
+                if button.BrickColor == BrickColor.new("Camo") then
+                    print("[DEBUG] Plate "..i.." berhasil ditekan")
+                else
+                    print("[DEBUG] Plate "..i.." belum berubah, coba lagi")
+                end
+            else
+                print("[DEBUG] Plate "..i.." sudah aktif")
+            end
+        else
+            warn("[DEBUG] Plate "..i.." tidak ditemukan")
+        end
+    end
+
+    task.wait(0.5)
+    progress = getSaberProgress() -- update progress
+
+    -- Step 2: torch
+    if not progress.UsedTorch then
+        local torch = jungle:FindFirstChild("Torch")
+        print("[DEBUG] Belum pakai torch, ambil torch & bakar pintu")
+        tweenTo(torch.CFrame)
+        task.wait(3)
+        tweenTo(bakar)
+        task.wait(3)
+        local torch = player.Backpack:FindFirstChild("Torch")
+        if torch then torch.Parent = character end
+        task.wait(3)
+        print("[DEBUG] Sudah bakar pintu, next loop bakal jadi UsedTorch")
+        return
+    end
+
+    -- Step 3: cup & sickman
+    if not progress.UsedCup then
+        print("[DEBUG] Belum pakai cup, ambil cup & isi air")
+        tweenTo(cup)
+        task.wait(1)
+        tweenTo(water)
+        task.wait(0.5)
+        local cupTool = player.Backpack:FindFirstChild("Cup")
+        if cupTool then cupTool.Parent = character end
+        task.wait(3)
+        CommF:InvokeServer("ProQuestProgress", "SickMan")
+        print("[DEBUG] Sudah remote sickman, next loop bakal jadi UsedCup")
+        return
+    end
+
+    -- Step 4: relic
+    if not progress.UsedRelic then
+        print("[DEBUG] Belum ada relic, remote RichMan")
+        CommF:InvokeServer("ProQuestProgress", "RichSon")
+        task.wait(0.5)
+        local relic = player.Backpack:FindFirstChild("Relic")
+        if relic then
+           blackLeg1.Parent = player.Backpack
+            print("[DEBUG] Dapat relic, ke altar & saber expert")
+            tweenTo(relicAltarPosition)
+            task.wait(0.5)
+            relic.Parent = character
+            task.wait(1)
+            AutoEquipFightingStyle()
+            tweenTo(saberExpertPosition)
+            attackEnemy("Saber Expert")
+            saberquest = false
+        else
+            print("[DEBUG] Belum dapat relic, serang Mob Leader")
+            tweenTo(mobLeaderPosition)
+            AutoEquipFightingStyle()
+            attackEnemy("Mob Leader")
+            print("[DEBUG] Remote RichMan lagi")
+            CommF:InvokeServer("ProQuestProgress", "RichSon")
+            task.wait(0.5)
+            local relic2 = player.Backpack:FindFirstChild("Relic")
+            if relic2 then
+            blackLeg1.Parent = player.Backpack
+                print("[DEBUG] Dapat relic, ke altar & saber expert")
+                tweenTo(relicAltarPosition)
+                task.wait(0.5)
+                relic2.Parent = character
+                task.wait(1)
+                AutoEquipFightingStyle()
+                tweenTo(saberExpertPosition)
+                attackEnemy("Saber Expert")
+                saberquest = false
+            else
+                warn("[DEBUG] Tetap tidak dapat relic, hop server...")
+                HopServer()
+            end
+        end
+        return
+    end
+
+    -- Step 5: relic sudah ada
+    print("[DEBUG] Relic sudah ada, langsung altar & saber expert")
+    tweenTo(relicAltarPosition)
+    blackLeg1.Parent = player.Backpack
+    task.wait(0.5)
+    local relicFinal = player.Backpack:FindFirstChild("Relic")
+    if relicFinal then relicFinal.Parent = character end
+    task.wait(1)
+    AutoEquipFightingStyle()
+    tweenTo(saberExpertPosition)
+    attackEnemy("Saber Expert")
+    saberquest = false
+end
+
+getgenv().AutoFarmAktif = true
+
+-- Main game loop
+local function AutoFarm()
+while true do
+  if getgenv().AutoFarmAktif then
+    local level = player:WaitForChild("Data"):WaitForChild("Level").Value        
+    
+    -- Level progression logic
+   if isFirstSea then
+    if level < 10 then
+        ambilQuest(banditQuestCFrame, "BanditQuest1", 1)
+        isFlying = true        
+        cariDanSerangMusuh("Bandit")
+
+    elseif level >= 10 and level < 20 then
+        ambilQuest(adventurerQuestCFrame, "JungleQuest", 1)
+        isFlying = true        
+        cariDanSerangMusuh("Monkey")
+
+    elseif level >= 20 and level < 25 then
+        ambilQuest(adventurerQuestCFrame, "JungleQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Gorilla")
+
+    elseif level >= 25 and level < 30 then
+        local TGKFound = isBossAvailable("The Gorilla King", 25)
+        
+        if TGKFound then
+            ambilQuest(adventurerQuestCFrame, "JungleQuest", 3)
+            isFlying = true
+            cariDanSerangMusuh("The Gorilla King")
+        else
+            ambilQuest(adventurerQuestCFrame, "JungleQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Gorilla")
+        end
+
+    elseif level >= 30 and level < 40 then
+        ambilQuest(pirateQuestCFrame, "BuggyQuest1", 1)
+        isFlying = true
+        cariDanSerangMusuh("Pirate")
+
+    elseif level >= 40 and level < 55 then
+        ambilQuest(pirateQuestCFrame, "BuggyQuest1", 2)
+        isFlying = true
+        cariDanSerangMusuh("Brute")
+
+    elseif level >= 55 and level < 60 then
+        local CFound = isBossAvailable("Chef", 55)
+
+        if CFound then
+            ambilQuest(pirateQuestCFrame, "BuggyQuest1", 3)
+            isFlying = true
+            cariDanSerangMusuh("Chef")
+        else
+            ambilQuest(pirateQuestCFrame, "BuggyQuest1", 2)
+            isFlying = true
+            cariDanSerangMusuh("Brute")
+        end
+        
+    elseif level >= 60 and level < 75 then
+        ambilQuest(desertadventurerQuestCFrame, "DesertQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Desert Bandit")
+
+    elseif level >= 75 and level < 90 then
+        ambilQuest(desertadventurerQuestCFrame, "DesertQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Desert Officer")
+       
+    elseif level >= 90 and level < 100 then
+        ambilQuest(villagerQuestCFrame, "SnowQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Snow Bandit")
+
+    elseif level >= 100 and level < 105 then
+        ambilQuest(villagerQuestCFrame, "SnowQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Snowman")
+
+    elseif level >= 105 and level < 120 then
+        local YFound = isBossAvailable("Yeti", 105)
+        
+        if YFound then
+            ambilQuest(villagerQuestCFrame, "SnowQuest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Yeti")
+        else
+            ambilQuest(villagerQuestCFrame, "SnowQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Snowman")
+        end
+        
+    elseif level >= 120 and level < 130 then
+        ambilQuest(marine2QuestCFrame, "MarineQuest2", 1)
+        isFlying = true
+        cariDanSerangMusuh("Chief Petty Officer")
+
+    elseif level >= 130 and level < 150 then
+        local VAFound = isBossAvailable("Vice Admiral", 130)
+        
+        if VAFound then
+            ambilQuest(marine2QuestCFrame, "MarineQuest2", 2)
+            isFlying = true
+            cariDanSerangMusuh("Vice Admiral")
+        else
+            ambilQuest(marine2QuestCFrame, "MarineQuest2", 1)
+            isFlying = true
+            cariDanSerangMusuh("Chief Petty Officer")
+        end
+        
+        getgenv().AutoHopEnabled = true
+             HopServer()
+             return
+        
+    elseif level >= 150 and level < 175 then
+        ambilQuest(skyadventurerQuestCFrame, "SkyQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Sky Bandit")
+
+    elseif level >= 175 and level < 190 then
+        ambilQuest(skyadventurerQuestCFrame, "SkyQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Dark Master")
+           
+    elseif level >= 190 and level < 210 then
+        ambilQuest(jailkeeperQuestCFrame, "PrisonerQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Prisoner")
+
+    elseif level >= 210 and level < 220 then
+      if not isQuestSaberDone() then
+          questSaberFull()
+      else
+        ambilQuest(jailkeeperQuestCFrame, "PrisonerQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Dangerous Prisoner")
+      end
+        
+    elseif level >= 220 and level < 230 then
+        local WFound = isBossAvailable("Warden", 220)
+        
+        if WFound then
+            ambilQuest(headjailerQuestCFrame, "ImpelQuest", 1)
+            isFlying = true
+            cariDanSerangMusuh("Warden")
+        else
+            ambilQuest(jailkeeperQuestCFrame, "PrisonerQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Dangerous Prisoner")
+        end
+        
+    elseif level >= 230 and level < 240 then
+        local CWFound = isBossAvailable("Chief Warden", 230)
+        
+        if CWFound then
+            ambilQuest(headjailerQuestCFrame, "ImpelQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Chief Warden")
+        else
+            ambilQuest(jailkeeperQuestCFrame, "PrisonerQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Dangerous Prisoner")
+        end
+        
+    elseif level >= 240 and level < 250 then
+        local SFound = isBossAvailable("Swan", 240)
+        
+        if SFound then
+            ambilQuest(headjailerQuestCFrame, "ImpelQuest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Swan")
+        else
+            ambilQuest(jailkeeperQuestCFrame, "PrisonerQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Dangerous Prisoner")
+        end
+        
+    elseif level >= 250 and level < 275 then
+        ambilQuest(colosseumQuestCFrame, "ColosseumQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Toga Warrior")
+ 
+    elseif level >= 275 and level < 300 then
+        ambilQuest(colosseumQuestCFrame, "ColosseumQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Gladiator")
+            
+    elseif level >= 300 and level < 325 then
+        ambilQuest(themayorQuestCFrame, "MagmaQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Military Soldier")
+
+    elseif level >= 325 and level < 350 then
+        ambilQuest(themayorQuestCFrame, "MagmaQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Military Spy")
+
+    elseif level >= 350 and level < 375 then
+        local bossFound = isBossAvailable("Magma Admiral", 350)
+        
+        if bossFound then
+            ambilQuest(themayorQuestCFrame, "MagmaQuest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Magma Admiral")
+        else
+            ambilQuest(themayorQuestCFrame, "MagmaQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Military Spy")
+        end
+
+    elseif level >= 375 and level < 400 then        
+            ambilQuest(kingneptuneQuestCFrame, "FishmanQuest", 1)
+            isFlying = true
+            cariDanSerangMusuh("Fishman Warrior")
+
+        elseif level >= 400 and level < 425 then
+            ambilQuest(kingneptuneQuestCFrame, "FishmanQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Fishman Commando")
+
+        elseif level >= 425 and level < 450 then
+            local bossFound = isBossAvailable("Fishman Lord", 425)
+
+            if bossFound then
+                ambilQuest(kingneptuneQuestCFrame, "FishmanQuest", 3)
+                isFlying = true
+                cariDanSerangMusuh("Fishman Lord")
+            else
+                ambilQuest(kingneptuneQuestCFrame, "FishmanQuest", 2)
+                isFlying = true
+                cariDanSerangMusuh("Fishman Commando")
+            end
+
+    elseif level >= 450 and level < 525 then
+        
+    local exitCFrame = workspace.Map.TeleportSpawn.Exit.CFrame    
+
+        if level < 475 then
+            ambilQuest(moleindex1QuestCFrame, "SkyExp1Quest", 1)
+            isFlying = true
+            cariDanSerangMusuh("God's Guard")
+
+        elseif level < 500 then
+            ambilQuest(moleindex2dan3QuestCFrame, "SkyExp1Quest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Shanda")
+
+        elseif level < 525 then
+            local bossFound = isBossAvailable("Wysper", 500)
+
+            if bossFound then
+                ambilQuest(moleindex2dan3QuestCFrame, "SkyExp1Quest", 3)
+                isFlying = true
+                cariDanSerangMusuh("Wysper")
+            else
+                ambilQuest(moleindex2dan3QuestCFrame, "SkyExp1Quest", 2)
+                isFlying = true
+                cariDanSerangMusuh("Shanda")
+            end
+        end
+
+    elseif level >= 525 and level < 550 then
+        ambilQuest(sky2QuestCFrame, "SkyExp2Quest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Royal Squad")
+
+    elseif level >= 550 and level < 575 then
+        ambilQuest(sky2QuestCFrame, "SkyExp2Quest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Royal Soldier")
+
+    elseif level >= 575 and level < 625 then
+        local bossFound = isBossAvailable("Thunder God", 575)
+
+        if bossFound then
+            ambilQuest(sky2QuestCFrame, "SkyExp2Quest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Thunder God")
+        else
+            ambilQuest(sky2QuestCFrame, "SkyExp2Quest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Royal Soldier")
+        end
+    
+    elseif level >= 625 and level < 650 then
+        ambilQuest(freezeburgQuestCFrame, "FountainQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Galley Pirate")
+
+    elseif level >= 650 and level < 675 then
+        ambilQuest(freezeburgQuestCFrame, "FountainQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Galley Captain")
+
+    elseif level >= 675 and level < 700 then
+        local bossFound = isBossAvailable("Cyborg", 675)
+
+        if bossFound then
+            ambilQuest(freezeburgQuestCFrame, "FountainQuest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Cyborg")
+        else
+            ambilQuest(freezeburgQuestCFrame, "FountainQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Galley Captain")
+        end        
+    
+    elseif level >= 700 and not sudahUnlockSea2 and not progress.Sea2Unlocked then
+    
+local success, progress = pcall(function()
+    return ReplicatedStorage.Remotes.CommF_:InvokeServer("DressrosaQuestProgress")
+end)
+if not success or not progress then
+    warn("Gagal ambil progres!")
+    return
+end
+
+if not progress.TalkedDetective then
+    print("Step: Bicara ke Detective...")
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Detective")
+    -- tunggu sedikit biar update
+    task.wait(1)
+elseif not progress.UsedKey then
+    print("Step: Buka pintu es...")
+    local pintuice = workspace.Map.Ice.Door.CFrame
+    tweenTo(pintuice)
+    -- Equip Key kalau ada di backpack
+    local backpack = player:FindFirstChild("Backpack")
+    if backpack and backpack:FindFirstChild("Key") then
+        local keyTool = backpack:FindFirstChild("Key")
+        if keyTool and player.Character then
+            player.Character.Humanoid:EquipTool(keyTool)
+        end
+    end
+    task.wait(1)
+elseif not progress.KilledIceBoss then
+    _G.Bring = false
+    local pintuice = workspace.Map.Ice.Door.CFrame
+    tweenTo(pintuice)
+    task.wait(1)
+    print("Step: Lawan Ice Admiral...")
+    -- Langsung pakai kode serangmu di sini (atau loop serangmu)
+    while true do
+        local iceAdmiral = nil
+        for _, enemy in pairs(workspace:WaitForChild("Enemies"):GetChildren()) do
+            if enemy.Name == "Ice Admiral" and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                iceAdmiral = enemy
+                break
+            end
+        end
+        if not iceAdmiral then break end
+        local enemyHead = iceAdmiral:FindFirstChild("Head")
+        local humanoid = iceAdmiral:FindFirstChild("Humanoid")
+        if enemyHead and humanoid and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            local newPos = enemyHead.Position + Vector3.new(0, 30, 0)
+            hrp.CFrame = CFrame.new(newPos) * CFrame.Angles(0, hrp.CFrame.Rotation.Y, 0)
+        end
+        task.wait(0.001)
+    end
+    -- Tunggu sampai Ice Admiral mati
+    local function isIceAdmiralAlive()
+        for _, enemy in pairs(workspace:WaitForChild("Enemies"):GetChildren()) do
+            if enemy.Name == "Ice Admiral" and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                return true
+            end
+        end
+        return false
+    end
+    while isIceAdmiralAlive() do
+        task.wait(1)
+    end
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Ice Admiral")
+    task.wait(1)
+elseif not progress.Sea2Unlocked then
+    print("Step: Teleport ke Dressrosa/Sea 2...")
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Detective")
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Dressrosa")
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelDressrosa")
+    saveProgress()
+else
+    print("Sea 2 sudah terbuka!")
+end
+
+end
+    
+    elseif isSecondSea then
+       if level >= 700 and level < 725 then
+            ambilQuest(area1QuestCFrame, "Area1Quest", 1)
+            isFlying = true
+            cariDanSerangMusuh("Raider")
+            
+       elseif level >= 725 and level < 750 then
+            ambilQuest(area1QuestCFrame, "Area1Quest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Mercenary")
+            
+       elseif level >= 750 and level < 775 then
+         local bossFound = isBossAvailable("Diamond", 750)
+
+        if bossFound then
+            ambilQuest(area1QuestCFrame, "Area1Quest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Diamond")
+        else
+            ambilQuest(area1QuestCFrame, "Area1Quest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Mercenary")
+        end
+        
+    elseif level >= 775 and level < 800 then
+        ambilQuest(area2QuestCFrame, "Area2Quest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Swan Pirate")
+
+    elseif level >= 800 and level < 850 then
+        ambilQuest(area2QuestCFrame, "Area2Quest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Factory Staff")
+
+elseif level >= 850 and level < 875 then
+    local bossFound = isBossAvailable("Jeremy", 850)
+
+    if not memilikiItem("Warrior Helmet") then
+        SelesaikanBartiloQuest()
+        
+    elseif bossFound then
+        ambilQuest(area2QuestCFrame, "Area2Quest", 3)
+        isFlying = true
+        cariDanSerangMusuh("Jeremy")
+
+    else
+        ambilQuest(area2QuestCFrame, "Area2Quest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Factory Staff")
+    end
+
+            
+    elseif level >= 875 and level < 900 then
+        ambilQuest(marineQuestCFrame, "MarineQuest3", 1)
+        isFlying = true
+        cariDanSerangMusuh("Marine Lieutenant")
+
+    elseif level >= 900 and level < 925 then
+        ambilQuest(marineQuestCFrame, "MarineQuest3", 2)
+        isFlying = true
+        cariDanSerangMusuh("Marine Captain")
+
+    elseif level >= 925 and level < 950 then
+        local bossFound = isBossAvailable("Orbitus", 925)
+
+        if bossFound then
+            ambilQuest(marineQuestCFrame, "MarineQuest3", 3)
+            isFlying = true
+            cariDanSerangMusuh("Orbitus")
+        else
+            ambilQuest(marineQuestCFrame, "MarineQuest3", 2)
+            isFlying = true
+            cariDanSerangMusuh("Marine Captain")
+        end
+        
+    elseif level >= 950 and level < 975 then
+        ambilQuest(graveyardQuestCFrame, "ZombieQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Zombie")
+
+    elseif level >= 975 and level < 1000 then
+        ambilQuest(graveyardQuestCFrame, "ZombieQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Vampire")
+
+    elseif level >= 1000 and level < 1050 then
+        ambilQuest(snowQuestCFrame, "SnowMountainQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Snow Trooper")
+
+    elseif level >= 1050 and level < 1100 then
+        ambilQuest(snowQuestCFrame, "SnowMountainQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Winter Warrior")
+              
+    elseif level >= 1100 and level < 1125 then
+        ambilQuest(iceQuestCFrame, "IceSideQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Lab Subordinate")
+        
+    elseif level >= 1125 and level < 1150 then 
+        ambilQuest(iceQuestCFrame, "IceSideQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Horned Warrior")
+
+    elseif level >= 1150 and level < 1175 then
+        local bossFound = isBossAvailable("Smoke Admiral", 1150)
+                
+        if not progress.SudahAmbilLibraryKey then
+          FarmLibraryKey()     
+
+        elseif bossFound then
+            ambilQuest(iceQuestCFrame, "IceSideQuest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Smoke Admiral")
+        else
+            ambilQuest(iceQuestCFrame, "IceSideQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Horned Warrior")
+        end
+        
+    elseif level >= 1175 and level < 1200 then
+        ambilQuest(fireQuestCFrame, "FireSideQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Magma Ninja")
+
+    elseif level >= 1200 and level < 1250 then
+        ambilQuest(fireQuestCFrame, "FireSideQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Lava Pirate")
+        
+    elseif level >= 1250 and level < 1275 then
+        ambilQuest(rearQuestCFrame, "ShipQuest1", 1)
+        isFlying = true
+        cariDanSerangMusuh("Ship Deckhand")
+
+    elseif level >= 1275 and level < 1300 then
+        ambilQuest(rearQuestCFrame, "ShipQuest1", 2)
+        isFlying = true
+        cariDanSerangMusuh("Ship Engineer")
+        
+    elseif level >= 1300 and level < 1325 then
+        ambilQuest(frontQuestCFrame, "ShipQuest2", 1)
+        isFlying = true
+        cariDanSerangMusuh("Ship Steward")
+
+    elseif level >= 1325 and level < 1350 then
+        ambilQuest(frontQuestCFrame, "ShipQuest2", 2)
+        isFlying = true
+        cariDanSerangMusuh("Ship Officer")
+        
+    elseif level >= 1350 and level < 1375 then
+        ambilQuest(frostQuestCFrame, "FrostQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Arctic Warrior")
+        
+    elseif level >= 1375 and level < 1400 then
+        ambilQuest(frostQuestCFrame, "FrostQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Snow Lurker")       
+
+    elseif level >= 1400 and level < 1425 then
+        if not progress.SudahAmbilWaterKey then
+          FarmWaterKey()
+      
+        local bossFound = isBossAvailable("Awakened Ice Admiral", 1400)
+        elseif bossFound then
+            ambilQuest(frostQuestCFrame, "FrostQuest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Awakened Ice Admiral")
+        else
+            ambilQuest(frostQuestCFrame, "FrostQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Snow Lurker")
+        end
+        
+    elseif level >= 1425 and level < 1450 then
+        ambilQuest(forgottenQuestCFrame, "ForgottenQuest", 1)
+        isFlying = true
+        cariDanSerangMusuh("Sea Soldier")
+        
+    elseif level >= 1450 and level < 1475 then
+        ambilQuest(forgottenQuestCFrame, "ForgottenQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Water Fighter")
+
+    elseif level >= 1475 and level < 1500 then
+        local bossFound = isBossAvailable("Tide Keeper", 1475)
+
+        if bossFound then
+            ambilQuest(forgottenQuestCFrame, "ForgottenQuest", 3)
+            isFlying = true
+            cariDanSerangMusuh("Tide Keeper")
+        else
+            ambilQuest(forgottenQuestCFrame, "ForgottenQuest", 2)
+            isFlying = true
+            cariDanSerangMusuh("Water Fighter")
+        end
+        
+elseif level >= 1500 and isSecondSea and not progress.Sea3Unlocked then
+    getgenv().AutoStoreFruits = false
+    getgenv().OnFarm = false
+    getgenv().CanStoreFruit = false
+
+    local currentState = progress.Sea3Progress or {
+        hasFruit = false,
+        talkedToTrevor = false,
+        defeatedDonSwan = false,
+        startedZQuest = false,
+        defeatedRipIndra = false
+    }
+
+    local desiredFruits = {
+        ["Quake Fruit"] = true, ["Spider Fruit"] = true, ["Love Fruit"] = true, ["Sound Fruit"] = true,
+        ["Phoenix Fruit"] = true, ["Creation Fruit"] = true, ["Pain Fruit"] = true, ["Blizzard Fruit"] = true,
+        ["Rumble Fruit"] = true, ["Buddha Fruit"] = true, ["Portal Fruit"] = true
+    }
+
+    local fruitUnstoreNameMap = {
+        ["Quake Fruit"] = "Quake-Quake",
+        ["Spider Fruit"] = "Spider-Spider",
+        ["Love Fruit"] = "Love-Love",
+        ["Sound Fruit"] = "Sound-Sound",
+        ["Phoenix Fruit"] = "Phoenix-Phoenix",
+        ["Creation Fruit"] = "Creation-Creation",
+        ["Pain Fruit"] = "Pain-Pain",
+        ["Blizzard Fruit"] = "Blizzard-Blizzard",
+        ["Rumble Fruit"] = "Rumble-Rumble",
+        ["Buddha Fruit"] = "Human-Human: Buddha",
+        ["Portal Fruit"] = "Door-Door"
+    }
+
+    local function hasDesiredFruitInBackpack()
+        local backpack = game.Players.LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            for _, fruit in pairs(backpack:GetChildren()) do
+                if fruit:IsA("Tool") and desiredFruits[fruit.Name] then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    local function tryUnstoreFruits()
+        local ReplicatedStorage = game:GetService("ReplicatedStorage")
+        local CommF_ = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+        for _, unstoreName in pairs(fruitUnstoreNameMap) do
+            CommF_:InvokeServer("LoadFruit", unstoreName)
+            task.wait(0.25)
+            if hasDesiredFruitInBackpack() then
+                currentState.hasFruit = true
+                progress.Sea3Progress = currentState
+                saveProgress()
+                return true
+            end
+        end
+        return false
+    end
+
+if not currentState.hasFruit then
+    if not hasDesiredFruitInBackpack() then
+        local foundFruit = tryUnstoreFruits()
+        if not foundFruit then
+            local fruitFoundInWorkspace = false
+            for _, obj in pairs(workspace:GetChildren()) do
+                if obj:IsA("Tool") and desiredFruits[obj.Name] then
+                    if obj:FindFirstChild("Handle") then
+                        teleport(obj.Handle.CFrame)
+                        fruitFoundInWorkspace = true
+                        break
+                    end
+                end
+            end
+
+            if not fruitFoundInWorkspace then
+                getgenv().AutoHopEnabled = true
+                HopServer()
+                return
+            end
+        end
+    end
+
+    -- Kalau sudah dapat buah dari backpack, unstore, atau map
+    if hasDesiredFruitInBackpack() then
+        currentState.hasFruit = true
+        progress.Sea3Progress = currentState
+        saveProgress()
+    end
+end
+
+
+    if currentState.hasFruit and not currentState.talkedToTrevor then
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
+        local trevorCFrame = CFrame.new(-337.477997, 331.132996, 643.445007, -0.979974866, 0, -0.199122533, 0, 1, 0, 0.199122533, 0, -0.979974866)
+        tweenTo(trevorCFrame)
+        task.wait(1)
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("TalkTrevor", "1")
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("TalkTrevor", "2")
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("TalkTrevor", "3")
+        currentState.talkedToTrevor = true
+        progress.Sea3Progress = currentState
+        saveProgress()
+    end
+
+    if currentState.talkedToTrevor and not currentState.defeatedDonSwan then
+        local flamingoPart = workspace.Map.Dressrosa:FindFirstChild("FlamingoEntrance")
+        while true do
+            if flamingoPart then
+                tweenToRaid(flamingoPart.CFrame)
+                task.wait(1)
+            end
+
+            local found = false
+            for _, enemy in pairs(workspace.Enemies:GetChildren()) do
+                if enemy.Name == "Don Swan" and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                    serangMusuh(enemy)
+                    repeat task.wait(0.5) until enemy.Humanoid.Health <= 0 or not enemy:FindFirstChild("Humanoid")
+                    found = true
+                    currentState.defeatedDonSwan = true
+                    progress.Sea3Progress = currentState
+                    saveProgress()
+                    break
+                end
+            end
+
+            if found then break end
+            getgenv().AutoHopEnabled = true
+            HopServer()
+            return
+        end
+    end
+
+    if currentState.defeatedDonSwan and not currentState.startedZQuest then
+        local kingRedCFrame = CFrame.new(-1928.49805, 12.1679993, 1738.34204, 0.723301649, 0, 0.690532207, 0, 1, 0, -0.690532207, 0, 0.723301649)
+        tweenToRaid(kingRedCFrame)
+        task.wait(1)
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("ZQuestProgress", "Check")
+        task.wait(0.5)
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("ZQuestProgress", "Begin")
+        currentState.startedZQuest = true
+        progress.Sea3Progress = currentState
+        saveProgress()
+        task.wait(3)
+    end
+
+if currentState.startedZQuest and not currentState.defeatedRipIndra then
+	getgenv().AutoRipIndra = true
+
+	local function loopSerangIndra()
+		if not getgenv().AutoRipIndra then return end
+
+		-- Ambil status quest dari server
+		local questProgress = ReplicatedStorage.Remotes.CommF_:InvokeServer("ZQuestProgress")
+		if typeof(questProgress) == "table" then
+
+			-- Cek apakah quest selesai
+			if questProgress.KilledIndraBoss == true then
+				currentState.defeatedRipIndra = true
+				saveProgress()
+				getgenv().AutoRipIndra = false
+				return
+			end
+		end
+
+		-- Cari boss (ganti ke nama boss kamu jika bukan Akai)
+		for _, enemy in ipairs(workspace.Enemies:GetChildren()) do
+			if enemy.Name == "rip_indra" and enemy:FindFirstChild("Humanoid") then
+				local humanoid = enemy.Humanoid
+				local targetPos = (enemy:FindFirstChild("Head") or enemy:FindFirstChild("HumanoidRootPart")).Position + Vector3.new(0, 30, 0)
+				hrp.CFrame = CFrame.new(targetPos)
+
+				-- Serangan cepat
+				attackRemote:FireServer(0.01)
+
+				local parts = {}
+				for _, part in ipairs(enemy:GetChildren()) do
+					if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+						table.insert(parts, part)
+					end
+				end
+
+				local target = parts[math.random(1, #parts)]
+				if target then
+					_G.SendHitsToServer(target, {})
+				end
+			end
+		end
+
+		task.delay(0.1, loopSerangIndra)
+	end
+
+	-- Mulai loop
+	loopSerangIndra()
+end
+
+-- Auto teleport ke Zou setelah quest selesai
+task.delay(1, function()
+	local function autoTravel()
+		local questProgress = ReplicatedStorage.Remotes.CommF_:InvokeServer("ZQuestProgress")
+		if typeof(questProgress) == "table" and questProgress.KilledIndraBoss == true then
+		getgenv().OnFarm = true
+			task.wait(2)
+			ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelZou")
+
+			progress.Sea3Unlocked = true
+			progress.Sea3Progress = nil
+			saveProgress()
+			getgenv().AutoStoreFruits = true
+			getgenv().CanStoreFruit = nil
+		else
+			task.delay(0.5, autoTravel)
+		end
+	end
+	autoTravel()
+end)
+end
+
+
+
+elseif isThirdSea then
+ 
+if level >= 1500 and level < 1525 then
+    ambilQuest(pirateportQuestCFrame, "PiratePortQuest", 1)
+    isFlying = true
+    cariDanSerangMusuh("Pirate Millionaire")
+
+elseif level >= 1525 and level < 1550 then
+    ambilQuest(pirateportQuestCFrame, "PiratePortQuest", 2)
+    isFlying = true
+    cariDanSerangMusuh("Pistol Billionaire")
+
+elseif level >= 1550 and level < 1575 then
+    local bossFound = isBossAvailable("Stone", 1550)
+    if bossFound then
+        ambilQuest(pirateportQuestCFrame, "PiratePortQuest", 3)
+        isFlying = true
+        cariDanSerangMusuh("Stone")
+    else
+        ambilQuest(pirateportQuestCFrame, "PiratePortQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Pistol Billionaire")
+    end
+
+elseif level >= 1575 and level < 1600 then
+    ambilQuest(dragoncrewQuestCFrame, "DragonCrewQuest", 1)
+    isFlying = true
+    cariDanSerangMusuh("Dragon Crew Warrior")
+
+elseif level >= 1600 and level < 1625 then
+  if not progress.SudahAmbilElectricClaw then
+    SelesaikanElectricClawQuest1600()
+  else
+    ambilQuest(dragoncrewQuestCFrame, "DragonCrewQuest", 2)
+    isFlying = true
+    cariDanSerangMusuh("Dragon Crew Archer")
+  end
+
+elseif level >= 1625 and level < 1650 then
+    ambilQuest(hydratownQuestCFrame, "VenomCrewQuest", 1)
+    isFlying = true
+    cariDanSerangMusuh("Hydra Enforcer")
+
+elseif level >= 1650 and level < 1675 then
+    ambilQuest(hydratownQuestCFrame, "VenomCrewQuest", 2)
+    isFlying = true
+    cariDanSerangMusuh("Venomous Assailant")
+
+elseif level >= 1675 and level < 1700 then
+    local bossFound = isBossAvailable("Hydra Leader", 1675)
+    if bossFound then
+        ambilQuest(hydratownQuestCFrame, "VenomCrewQuest", 3)
+        isFlying = true
+        cariDanSerangMusuh("Hydra Leader")
+    else
+        ambilQuest(hydratownQuestCFrame, "VenomCrewQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Venomous Assailant")
+    end
+
+elseif level >= 1700 and level < 1725 then
+    ambilQuest(marinetreeQuestCFrame, "MarineTreeIsland", 1)
+    isFlying = true
+    cariDanSerangMusuh("Marine Commodore")
+
+elseif level >= 1725 and level < 1750 then
+    ambilQuest(marinetreeQuestCFrame, "MarineTreeIsland", 2)
+    isFlying = true
+    cariDanSerangMusuh("Marine Rear Admiral")
+
+elseif level >= 1750 and level < 1775 then
+    local bossFound = isBossAvailable("Kilo Admiral", 1750)
+    if bossFound then
+        ambilQuest(marinetreeQuestCFrame, "MarineTreeIsland", 3)
+        isFlying = true
+        cariDanSerangMusuh("Kilo Admiral")
+    else
+        ambilQuest(marinetreeQuestCFrame, "MarineTreeIsland", 2)
+        isFlying = true
+        cariDanSerangMusuh("Marine Rear Admiral")
+    end
+
+elseif level >= 1775 and level < 1800 then
+    ambilQuest(turtleadventureQuestCFrame, "DeepForestIsland3", 1)
+    isFlying = true
+    cariDanSerangMusuh("Fishman Raider")
+
+elseif level >= 1800 and level < 1825 then
+    ambilQuest(turtleadventureQuestCFrame, "DeepForestIsland3", 2)
+    isFlying = true
+    cariDanSerangMusuh("Fishman Captain")
+
+elseif level >= 1825 and level < 1850 then
+    ambilQuest(deepforestQuestCFrame, "DeepForestIsland", 1)
+    isFlying = true
+    cariDanSerangMusuh("Forest Pirate")
+
+elseif level >= 1850 and level < 1875 then
+    ambilQuest(deepforestQuestCFrame, "DeepForestIsland", 2)
+    isFlying = true
+    cariDanSerangMusuh("Mythological Pirate")
+
+elseif level >= 1875 and level < 1900 then
+    local bossFound = isBossAvailable("Captain Elephant", 1875)
+    if bossFound then
+        ambilQuest(deepforestQuestCFrame, "DeepForestIsland", 3)
+        isFlying = true
+        cariDanSerangMusuh("Captain Elephant")
+    else
+        ambilQuest(deepforestQuestCFrame, "DeepForestIsland", 2)
+        isFlying = true
+        cariDanSerangMusuh("Mythological Pirate")
+    end
+
+elseif level >= 1900 and level < 1925 then
+    ambilQuest(deepforest2QuestCFrame, "DeepForestIsland2", 1)
+    isFlying = true
+    cariDanSerangMusuh("Jungle Pirate")
+
+elseif level >= 1925 and level < 1950 then
+    ambilQuest(deepforest2QuestCFrame, "DeepForestIsland2", 2)
+    isFlying = true
+    cariDanSerangMusuh("Musketeer Pirate")
+
+elseif level >= 1950 and level < 1975 then
+    local bossFound = isBossAvailable("Beautiful Pirate", 1950)
+    if bossFound then
+        ambilQuest(deepforest2QuestCFrame, "DeepForestIsland2", 3)
+        isFlying = true
+        cariDanSerangMusuh("Beautiful Pirate")
+    else
+        ambilQuest(deepforest2QuestCFrame, "DeepForestIsland2", 2)
+        isFlying = true
+        cariDanSerangMusuh("Musketeer Pirate")
+    end
+
+elseif level >= 1975 and level < 2000 then
+    ambilQuest(hauntedcastleQuestCFrame, "HauntedQuest1", 1)
+    isFlying = true
+    cariDanSerangMusuh("Reborn Skeleton")
+
+elseif level >= 2000 and level < 2025 then
+    ambilQuest(hauntedcastleQuestCFrame, "HauntedQuest1", 2)
+    isFlying = true
+    cariDanSerangMusuh("Living Zombie")
+
+elseif level >= 2025 and level < 2050 then
+    ambilQuest(hauntedcastle2QuestCFrame, "HauntedQuest2", 1)
+    isFlying = true
+    cariDanSerangMusuh("Demonic Soul")
+
+elseif level >= 2050 and level < 2075 then
+    ambilQuest(hauntedcastle2QuestCFrame, "HauntedQuest2", 2)
+    isFlying = true
+    cariDanSerangMusuh("Posessed Mummy")
+
+elseif level >= 2075 and level < 2100 then
+    ambilQuest(peanutQuestCFrame, "NutsIslandQuest", 1)
+    isFlying = true
+    cariDanSerangMusuh("Peanut Scout")
+
+elseif level >= 2100 and level < 2125 then
+    ambilQuest(peanutQuestCFrame, "NutsIslandQuest", 2)
+    isFlying = true
+    cariDanSerangMusuh("Peanut President")
+
+elseif level >= 2125 and level < 2150 then
+    ambilQuest(icecreamQuestCFrame, "IceCreamIslandQuest", 1)
+    isFlying = true
+    cariDanSerangMusuh("Ice Cream Chef")
+
+elseif level >= 2150 and level < 2175 then
+    ambilQuest(icecreamQuestCFrame, "IceCreamIslandQuest", 2)
+    isFlying = true
+    cariDanSerangMusuh("Ice Cream Commander")
+
+elseif level >= 2175 and level < 2200 then
+    local bossFound = isBossAvailable("Cake Queen", 2175)
+    if bossFound then
+        ambilQuest(icecreamQuestCFrame, "IceCreamIslandQuest", 3)
+        isFlying = true
+        cariDanSerangMusuh("Cake Queen")
+    else
+        ambilQuest(icecreamQuestCFrame, "IceCreamIslandQuest", 2)
+        isFlying = true
+        cariDanSerangMusuh("Ice Cream Commander")
+    end
+
+elseif level >= 2200 and level < 2225 then
+    ambilQuest(cake1QuestCFrame, "CakeQuest1", 1)
+    isFlying = true
+    cariDanSerangMusuh("Cookie Crafter")
+
+elseif level >= 2225 and level < 2250 then
+    ambilQuest(cake1QuestCFrame, "CakeQuest1", 2)
+    isFlying = true
+    cariDanSerangMusuh("Cake Guard")
+
+elseif level >= 2250 and level < 2275 then
+    ambilQuest(cake2QuestCFrame, "CakeQuest2", 1)
+    isFlying = true
+    cariDanSerangMusuh("Baking Staff")
+
+elseif level >= 2275 and level < 2300 then
+    ambilQuest(cake2QuestCFrame, "CakeQuest2", 2)
+    isFlying = true
+    cariDanSerangMusuh("Head Baker")
+
+elseif level >= 2300 and level < 2325 then
+    ambilQuest(coklat1QuestCFrame, "ChocQuest1", 1)
+    isFlying = true
+    cariDanSerangMusuh("Cocoa Warrior")
+
+elseif level >= 2325 and level < 2350 then
+    ambilQuest(coklat1QuestCFrame, "ChocQuest1", 2)
+    isFlying = true
+    cariDanSerangMusuh("Chocolate Bar Battler")
+
+elseif level >= 2350 and level < 2375 then
+    ambilQuest(coklat2QuestCFrame, "ChocQuest2", 1)
+    isFlying = true
+    cariDanSerangMusuh("Sweet Thief")
+
+elseif level >= 2375 and level < 2400 then
+    ambilQuest(coklat2QuestCFrame, "ChocQuest2", 2)
+    isFlying = true
+    cariDanSerangMusuh("Candy Rebel")
+
+elseif level >= 2400 and level < 2425 then
+    ambilQuest(candycaneQuestCFrame, "CandyQuest1", 1)
+    isFlying = true
+    cariDanSerangMusuh("Candy Pirate")
+
+elseif level >= 2425 and level < 2450 then
+    ambilQuest(candycaneQuestCFrame, "CandyQuest1", 2)
+    isFlying = true
+    cariDanSerangMusuh("Snow Demon")
+
+elseif level >= 2450 and level < 2475 then
+    ambilQuest(tiki1QuestCFrame, "TikiQuest1", 1)
+    isFlying = true
+    cariDanSerangMusuh("Isle Outlaw")
+
+elseif level >= 2475 and level < 2500 then
+    ambilQuest(tiki1QuestCFrame, "TikiQuest1", 2)
+    isFlying = true
+    cariDanSerangMusuh("Island Boy")
+
+elseif level >= 2500 and level < 2525 then
+    ambilQuest(tiki2QuestCFrame, "TikiQuest2", 1)
+    isFlying = true
+    cariDanSerangMusuh("Sun-Kissed Warrior")
+
+elseif level >= 2525 and level < 2550 then
+    ambilQuest(tiki2QuestCFrame, "TikiQuest2", 2)
+    isFlying = true
+    cariDanSerangMusuh("Isle Champion")
+
+elseif level >= 2550 and level < 2575 then
+    ambilQuest(tiki3QuestCFrame, "TikiQuest3", 1)
+    isFlying = true
+    cariDanSerangMusuh("Serpent Hunter")
+
+elseif level >= 2575 and level < 2650 then
+    ambilQuest(tiki3QuestCFrame, "TikiQuest3", 2)
+    isFlying = true
+    cariDanSerangMusuh("Skull Slayer")    
+ 
+elseif level >= 2650 then
+      autoBuyBonesDanEliteHunter()      
+    end        
+  end
+end
+    task.wait(0.1)
+end
+end
+
+-- Mapping buah untuk LoadFruit
+local fruitUnstoreNameMap = {
+    ["Rocket Fruit"] = "Rocket-Rocket",
+    ["Spin Fruit"] = "Spin-Spin",
+    ["Chop Fruit"] = "Chop-Chop",
+    ["Spring Fruit"] = "Spring-Spring",
+    ["Bomb Fruit"] = "Bomb-Bomb",
+    ["Smoke Fruit"] = "Smoke-Smoke",
+    ["Spike Fruit"] = "Spike-Spike",
+    ["Flame Fruit"] = "Flame-Flame",
+    ["Falcon Fruit"] = "Falcon-Falcon",
+    ["Ice Fruit"] = "Ice-Ice",
+    ["Sand Fruit"] = "Sand-Sand",
+    ["Dark Fruit"] = "Dark-Dark",
+    ["Ghost Fruit"] = "Ghost-Ghost",
+    ["Diamond Fruit"] = "Diamond-Diamond",
+    ["Light Fruit"] = "Light-Light",
+    ["Rubber Fruit"] = "Rubber-Rubber",
+    ["Barrier Fruit"] = "Barrier-Barrier"
+}
+
+-- Jarak antar island Raid (dari island i ke i+1)
+local jarakAntarPulau = {
+    [1] = 2000,
+    [2] = 2100,
+    [3] = 2000,
+    [4] = 2300
+}
+local MAKS_TOLERANSI = 2500
+
+-- Cek apakah buah sudah ada di backpack
+local function hasFruitInBackpack(fruitName)
+    local backpack = player:FindFirstChild("Backpack")
+    if not backpack then return false end
+    for _, tool in pairs(backpack:GetChildren()) do
+        if tool:IsA("Tool") and tool.Name == fruitName then
+            return true
+        end
+    end
+    return false
+end
+
+-- Coba unstore semua buah, stop jika ada satu yang berhasil
+local function TryUnstoreCommonFruitOnce()
+    if not isThirdSea then return end
+
+    local CommF = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+
+    for fruitName, fruitCode in pairs(fruitUnstoreNameMap) do
+        if hasFruitInBackpack(fruitName) then
+            return
+        end
+
+        local success = pcall(function()
+            CommF:InvokeServer("LoadFruit", fruitCode)
+        end)
+
+        task.wait(0.5)
+
+        if hasFruitInBackpack(fruitName) then
+            return
+        end
+    end
+end
+
+-- AUTO RAID
+task.spawn(function()
+    task.wait(10)
+    while true do
+        local level = player:WaitForChild("Data"):WaitForChild("Level").Value
+
+        if (isSecondSea and level >= 1100 and level < 1400) or isThirdSea then
+            -- Unstore satu buah (berhenti jika berhasil)
+            TryUnstoreCommonFruitOnce()
+
+            -- Pilih Raid: Sand
+            local args = { "RaidsNpc", "Select", "Sand" }
+            ReplicatedStorage.Remotes.CommF_:InvokeServer(unpack(args))
+            task.wait(1)
+
+            local chip = player.Backpack:FindFirstChild("Special Microchip")
+            if chip then
+                getgenv().OnFarm = false
+                getgenv().AutoHopEnabled = false
+                stopTween()
+                getgenv().AutoFarmAktif = false
+                
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
+                task.wait(2)
+
+                local clickDetector
+                if isSecondSea then
+                    clickDetector = workspace.Map.CircleIsland.RaidSummon2.Button.Main:FindFirstChild("ClickDetector")
+                elseif isThirdSea then
+                    clickDetector = workspace.Map["Boat Castle"].RaidSummon2.Button.Main:FindFirstChild("ClickDetector")
+                end
+
+                if clickDetector then
+                    fireclickdetector(clickDetector)
+
+                    for i = 1, 30 do
+                        if isRaidTimerVisible() then break end
+                        task.wait(1)
+                    end
+
+                    character = player.Character or player.CharacterAdded:Wait()
+                    hrp = character:WaitForChild("HumanoidRootPart")
+
+                    local islandIndex = 2
+
+while isRaidTimerVisible() do
+    local musuhAda = false
+    for _, enemy in pairs(workspace.Enemies:GetChildren()) do
+        if table.find({
+            "Bladesmith", "Shocker", "Sorcerer", "Bone Breaker",
+            "Sand User", "Sand Master"
+        }, enemy.Name) then
+            local humanoid = enemy:FindFirstChild("Humanoid")
+            local enemyHRP = enemy:FindFirstChild("HumanoidRootPart")
+            if humanoid and enemyHRP and humanoid.Health > 0 then
+                local jarakMusuh = (hrp.Position - enemyHRP.Position).Magnitude
+                if jarakMusuh <= MAKS_TOLERANSI then
+                    musuhAda = true
+                    serangMusuhRaid(enemy)
+                end
+            end
+        end
+    end
+
+    if not musuhAda then
+        for i = islandIndex, 5 do
+            local island = workspace.Map.RaidMap:FindFirstChild("RaidIsland" .. i)
+            if island then
+                local asal = i - 1
+                local jarak = jarakAntarPulau[asal]
+                if jarak then
+                    local actualJarak = (hrp.Position - island:GetModelCFrame().Position).Magnitude
+                    if actualJarak >= (jarak - MAKS_TOLERANSI) and actualJarak <= (jarak + MAKS_TOLERANSI) then
+                        tweenToRaid(island:GetModelCFrame() + Vector3.new(0, 30, 0))
+                        islandIndex = i + 1
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    task.wait(0.1)
+end
+
+                    repeat task.wait(1) until not isRaidTimerVisible()
+                    task.wait(3)
+                    getgenv().OnFarm = true
+                    getgenv().AutoHopEnabled = true
+                    HopServer()
+                    return
+                end
+            else
+                task.wait(120)
+            end
+        else
+            task.wait(30)
+        end
+    end
+end)
+
+
+
+print("[DEBUG] SCRIPT STARTED")
+
+task.spawn(function()
+    print("[DEBUG] Test manual AutoFarm")
+    AutoFarm()
+end)
+task.spawn(autoV) 
+
+task.spawn(function()
+    while task.wait() do
+        pcall(function()
+            if getgenv().OnFarm then
+                local plrChar = Player.Character
+                if plrChar and plrChar.PrimaryPart then
+                    -- Player paksa nempel ke block
+                    plrChar.PrimaryPart.CFrame = block.CFrame
+
+                    -- Nonaktifin collider
+                    for _, part in pairs(plrChar:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
+                    end
+
+                    -- Anti stun / busy
+                    if plrChar:FindFirstChild("Stun") and plrChar.Stun.Value ~= 0 then
+                        plrChar.Stun.Value = 0
+                    end
+                    if plrChar:FindFirstChild("Busy") and plrChar.Busy.Value then
+                        plrChar.Busy.Value = false
+                    end
+                end
+            else
+                -- Reset collider kalau farming mati
+                local plrChar = Player.Character
+                if plrChar then
+                    for _, part in pairs(plrChar:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/kiktzyy/Beta/main/UI%20LIME%20HUB.lua"))()
